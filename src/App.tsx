@@ -1,50 +1,53 @@
 import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+type MenuKey = "project" | "layers" | "configuration" | "export";
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+const MENU_ITEMS: { key: MenuKey; label: string }[] = [
+  { key: "project", label: "Project" },
+  { key: "layers", label: "Layers" },
+  { key: "configuration", label: "Configuration" },
+  { key: "export", label: "Export" },
+];
+
+function App() {
+  const [activeMenu, setActiveMenu] = useState<MenuKey>("project");
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <div className="app-shell">
+      <header className="app-header">
+        <span className="app-title">GIS2Web Studio</span>
+        <button className="settings-button" type="button">
+          Settings
+        </button>
+      </header>
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+      <div className="app-body">
+        <nav className="app-sidebar">
+          {MENU_ITEMS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={
+                "sidebar-item" + (activeMenu === item.key ? " active" : "")
+              }
+              onClick={() => setActiveMenu(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <main className="app-main">
+          <h2>{MENU_ITEMS.find((m) => m.key === activeMenu)?.label}</h2>
+          <p>This section is a placeholder for the "{activeMenu}" panel.</p>
+        </main>
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+      <footer className="app-status-bar">
+        <span>Status: Ready</span>
+      </footer>
+    </div>
   );
 }
 
