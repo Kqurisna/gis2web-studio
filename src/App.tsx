@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "./App.css";
 import MapView from "./components/MapView";
+import ProjectPanel from "./components/ProjectPanel";
 
 type MenuKey = "project" | "layers" | "configuration" | "export";
 
@@ -42,6 +43,8 @@ function App() {
         <main className="app-main">
           {activeMenu === "layers" ? (
             <MapView />
+          ) : activeMenu === "project" ? (
+            <ProjectPanel />
           ) : (
             <>
               <h2>{MENU_ITEMS.find((m) => m.key === activeMenu)?.label}</h2>

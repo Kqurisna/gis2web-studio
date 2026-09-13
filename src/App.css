@@ -111,3 +111,30 @@ body,
   border-radius: 6px;
   overflow: hidden;
 }
+
+.project-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.project-path {
+  font-size: 0.85rem;
+  color: #4b5563;
+  word-break: break-all;
+}
+
+.project-error {
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.layer-list ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.layer-list li {
+  padding: 0.15rem 0;
+}
