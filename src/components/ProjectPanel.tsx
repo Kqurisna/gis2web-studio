@@ -2,8 +2,28 @@ import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 
-function ProjectPanel() {
-  const [layerNames, setLayerNames] = useState<string[]>([]);
+export interface LayerInfo {
+  name: string;
+  geometry_type: "Point" | "Line" | "Polygon" | "NoGeometry" | "Unknown";
+}
+
+interface ProjectPanelProps {
+  layers: LayerInfo[];
+  onLayersLoaded: (layers: LayerInfo[]) => void;
+  selectedLayerIndexes: number[];
+  onSelectedLayerIndexesChange: (indexes: number[]) => void;
+  boundaryLayerIndex: number | null;
+  onBoundaryLayerIndexChange: (index: number | null) => void;
+}
+
+function ProjectPanel({
+  layers,
+  onLayersLoaded,
+  selectedLayerIndexes,
+  onSelectedLayerIndexesChange,
+  boundaryLayerIndex,
+  onBoundaryLayerIndexChange,
+}: ProjectPanelProps) {
   const [projectPath, setProjectPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,15 +40,27 @@ function ProjectPanel() {
     setProjectPath(selected);
     setLoading(true);
     try {
-      const layers = await invoke<string[]>("parse_qgis_project", {
+      const result = await invoke<LayerInfo[]>("parse_qgis_project", {
         path: selected,
       });
-      setLayerNames(layers);
+      onLayersLoaded(result);
+      onSelectedLayerIndexesChange([]);
+      onBoundaryLayerIndexChange(null);
     } catch (err) {
       setError(String(err));
-      setLayerNames([]);
+      onLayersLoaded([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function toggleLayerSelected(index: number) {
+    if (selectedLayerIndexes.includes(index)) {
+      onSelectedLayerIndexesChange(
+        selectedLayerIndexes.filter((i) => i !== index)
+      );
+    } else {
+      onSelectedLayerIndexesChange([...selectedLayerIndexes, index]);
     }
   }
 
@@ -38,20 +70,70 @@ function ProjectPanel() {
         {loading ? "Membaca project..." : "Import Project"}
       </button>
 
-      {projectPath && (
-        <p className="project-path">Project: {projectPath}</p>
-      )}
+      {projectPath && <p className="project-path">Project: {projectPath}</p>}
 
       {error && <p className="project-error">Error: {error}</p>}
 
-      {layerNames.length > 0 && (
+      {layers.length > 0 && (
         <div className="layer-list">
-          <h3>Layer ditemukan ({layerNames.length})</h3>
-          <ul>
-            {layerNames.map((name, index) => (
-              <li key={`${name}-${index}`}>{name}</li>
-            ))}
-          </ul>
+          <h3>Layer ditemukan ({layers.length})</h3>
+          <table className="layer-table">
+            <thead>
+              <tr>
+                <th>Publikasikan</th>
+                <th>Boundary</th>
+                <th>Nama Layer</th>
+                <th>Tipe Geometri</th>
+              </tr>
+            </thead>
+            <tbody>
+              {layers.map((layer, index) => {
+                const isPolygon = layer.geometry_type === "Polygon";
+                return (
+                  <tr key={index}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedLayerIndexes.includes(index)}
+                        onChange={() => toggleLayerSelected(index)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="radio"
+                        name="boundary-layer"
+                        disabled={!isPolygon}
+                        checked={boundaryLayerIndex === index}
+                        onChange={() => onBoundaryLayerIndexChange(index)}
+                        title={
+                          isPolygon
+                            ? "Jadikan Boundary Layer"
+                            : "Hanya layer polygon yang bisa dijadikan Boundary Layer"
+                        }
+                      />
+                    </td>
+                    <td>{layer.name}</td>
+                    <td>
+                      {layer.geometry_type}
+                      {!isPolygon && (
+                        <span className="layer-note"> (bukan polygon)</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div className="layer-summary">
+            <p>Layer dipilih untuk dipublikasikan: {selectedLayerIndexes.length}</p>
+            <p>
+              Boundary Layer:{" "}
+              {boundaryLayerIndex !== null
+                ? layers[boundaryLayerIndex].name
+                : "(belum dipilih)"}
+            </p>
+          </div>
         </div>
       )}
     </div>

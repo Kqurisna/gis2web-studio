@@ -4,6 +4,13 @@ use std::path::Path;
 
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
+use serde::Serialize;
+
+#[derive(Serialize, Clone, Debug)]
+struct LayerInfo {
+    name: String,
+    geometry_type: String,
+}
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -49,17 +56,53 @@ fn extract_qgs_content(path: &str) -> Result<String, String> {
     }
 }
 
-fn parse_layer_names(xml_content: &str) -> Result<Vec<String>, String> {
+/// Normalisasi nilai atribut geometry dari QGIS jadi salah satu:
+/// "Point", "Line", "Polygon", "NoGeometry", atau "Unknown".
+fn normalize_geometry_type(raw: &str) -> String {
+    let lower = raw.to_lowercase();
+    if lower.contains("polygon") {
+        "Polygon".to_string()
+    } else if lower.contains("line") {
+        "Line".to_string()
+    } else if lower.contains("point") {
+        "Point".to_string()
+    } else if lower.contains("nogeometry") || lower.contains("none") {
+        "NoGeometry".to_string()
+    } else {
+        "Unknown".to_string()
+    }
+}
+
+fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
     let mut reader = Reader::from_str(xml_content);
     reader.config_mut().trim_text(true);
 
-    let mut layer_names = Vec::new();
+    let mut layers = Vec::new();
     let mut buf = Vec::new();
+
+    let mut in_maplayer = false;
     let mut in_layername = false;
+    let mut current_geometry = "Unknown".to_string();
+    let mut current_name: Option<String> = None;
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(e)) if e.name().as_ref() == b"layername" => {
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) if e.name().as_ref() == b"maplayer" => {
+                in_maplayer = true;
+                current_geometry = "Unknown".to_string();
+                current_name = None;
+
+                for attr_result in e.attributes() {
+                    if let Ok(attr) = attr_result {
+                        if attr.key.as_ref() == b"geometry" {
+                            if let Ok(value) = attr.unescape_value() {
+                                current_geometry = normalize_geometry_type(&value);
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(Event::Start(e)) if in_maplayer && e.name().as_ref() == b"layername" => {
                 in_layername = true;
             }
             Ok(Event::Text(e)) if in_layername => {
@@ -68,11 +111,20 @@ fn parse_layer_names(xml_content: &str) -> Result<Vec<String>, String> {
                     .map_err(|err| format!("Gagal parsing XML: {err}"))?
                     .to_string();
                 if !text.trim().is_empty() {
-                    layer_names.push(text.trim().to_string());
+                    current_name = Some(text.trim().to_string());
                 }
             }
             Ok(Event::End(e)) if e.name().as_ref() == b"layername" => {
                 in_layername = false;
+            }
+            Ok(Event::End(e)) if e.name().as_ref() == b"maplayer" => {
+                if let Some(name) = current_name.take() {
+                    layers.push(LayerInfo {
+                        name,
+                        geometry_type: current_geometry.clone(),
+                    });
+                }
+                in_maplayer = false;
             }
             Ok(Event::Eof) => break,
             Err(err) => return Err(format!("Gagal parsing XML: {err}")),
@@ -81,13 +133,13 @@ fn parse_layer_names(xml_content: &str) -> Result<Vec<String>, String> {
         buf.clear();
     }
 
-    Ok(layer_names)
+    Ok(layers)
 }
 
 #[tauri::command]
-fn parse_qgis_project(path: String) -> Result<Vec<String>, String> {
+fn parse_qgis_project(path: String) -> Result<Vec<LayerInfo>, String> {
     let xml_content = extract_qgs_content(&path)?;
-    parse_layer_names(&xml_content)
+    parse_layers(&xml_content)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -138,3 +138,38 @@ body,
 .layer-list li {
   padding: 0.15rem 0;
 }
+
+.layer-table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 640px;
+  margin-top: 0.5rem;
+}
+
+.layer-table th,
+.layer-table td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.9rem;
+}
+
+.layer-table th {
+  color: #4b5563;
+  font-weight: 600;
+}
+
+.layer-note {
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
+.layer-summary {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #1f2937;
+}
+
+.layer-summary p {
+  margin: 0.15rem 0;
+}

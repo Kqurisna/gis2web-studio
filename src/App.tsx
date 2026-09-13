@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "./App.css";
 import MapView from "./components/MapView";
-import ProjectPanel from "./components/ProjectPanel";
+import ProjectPanel, { type LayerInfo } from "./components/ProjectPanel";
 
 type MenuKey = "project" | "layers" | "configuration" | "export";
 
@@ -14,6 +14,10 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
 
 function App() {
   const [activeMenu, setActiveMenu] = useState<MenuKey>("project");
+
+  const [layers, setLayers] = useState<LayerInfo[]>([]);
+  const [selectedLayerIndexes, setSelectedLayerIndexes] = useState<number[]>([]);
+  const [boundaryLayerIndex, setBoundaryLayerIndex] = useState<number | null>(null);
 
   return (
     <div className="app-shell">
@@ -44,7 +48,14 @@ function App() {
           {activeMenu === "layers" ? (
             <MapView />
           ) : activeMenu === "project" ? (
-            <ProjectPanel />
+            <ProjectPanel
+              layers={layers}
+              onLayersLoaded={setLayers}
+              selectedLayerIndexes={selectedLayerIndexes}
+              onSelectedLayerIndexesChange={setSelectedLayerIndexes}
+              boundaryLayerIndex={boundaryLayerIndex}
+              onBoundaryLayerIndexChange={setBoundaryLayerIndex}
+            />
           ) : (
             <>
               <h2>{MENU_ITEMS.find((m) => m.key === activeMenu)?.label}</h2>
