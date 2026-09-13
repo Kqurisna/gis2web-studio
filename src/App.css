@@ -92,6 +92,8 @@ body,
   flex: 1;
   padding: 1.5rem;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-status-bar {
@@ -100,4 +102,12 @@ body,
   background-color: #1f2937;
   color: #d1d5db;
   font-size: 0.85rem;
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  border-radius: 6px;
+  overflow: hidden;
 }

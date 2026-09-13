@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./App.css";
+import MapView from "./components/MapView";
 
 type MenuKey = "project" | "layers" | "configuration" | "export";
 
@@ -39,8 +40,14 @@ function App() {
         </nav>
 
         <main className="app-main">
-          <h2>{MENU_ITEMS.find((m) => m.key === activeMenu)?.label}</h2>
-          <p>This section is a placeholder for the "{activeMenu}" panel.</p>
+          {activeMenu === "layers" ? (
+            <MapView />
+          ) : (
+            <>
+              <h2>{MENU_ITEMS.find((m) => m.key === activeMenu)?.label}</h2>
+              <p>This section is a placeholder for the "{activeMenu}" panel.</p>
+            </>
+          )}
         </main>
       </div>
 
