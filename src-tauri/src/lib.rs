@@ -249,7 +249,44 @@ fn get_layer_geojson(project_path: String, datasource: String) -> Result<String,
 
     let source_args: Vec<String>;
 
-    if datasource.contains(".gpkg|layername=") {
+    if datasource.starts_with("/vsizip/") {
+        // Format: /vsizip/<path ke .zip>/<file di dalam zip>|layername=<nama>
+        let without_prefix = datasource.trim_start_matches("/vsizip/");
+        let (inner_path, layer_name) = match without_prefix.split_once("|layername=") {
+            Some((p, l)) => (p.to_string(), l.to_string()),
+            None => (without_prefix.to_string(), String::new()),
+        };
+
+        // Pisahkan path ZIP dan file di dalamnya (dipisah setelah ".zip")
+        let zip_marker = ".zip";
+        let zip_pos = inner_path
+            .find(zip_marker)
+            .ok_or_else(|| format!("Format vsizip tidak dikenali: {datasource}"))?;
+        let zip_path_raw = &inner_path[..zip_pos + zip_marker.len()];
+        let file_inside_zip = inner_path[zip_pos + zip_marker.len()..]
+            .trim_start_matches('/')
+            .to_string();
+
+        let resolved_zip = resolve_data_path(&project_dir, zip_path_raw)?;
+        let vsizip_path = format!(
+            "/vsizip/{}/{}",
+            resolved_zip.to_string_lossy(),
+            file_inside_zip
+        );
+
+        let mut args = vec![
+            "-f".to_string(),
+            "GeoJSON".to_string(),
+            "-t_srs".to_string(),
+            "EPSG:4326".to_string(),
+            output_path_str.clone(),
+            vsizip_path,
+        ];
+        if !layer_name.is_empty() {
+            args.push(layer_name);
+        }
+        source_args = args;
+    } else if datasource.contains(".gpkg|layername=") {
         let parts: Vec<&str> = datasource.splitn(2, "|layername=").collect();
         let raw_path = parts[0];
         let layer_name = parts.get(1).unwrap_or(&"").to_string();
@@ -257,6 +294,8 @@ fn get_layer_geojson(project_path: String, datasource: String) -> Result<String,
         source_args = vec![
             "-f".to_string(),
             "GeoJSON".to_string(),
+            "-t_srs".to_string(),
+            "EPSG:4326".to_string(),
             output_path_str.clone(),
             resolved.to_string_lossy().to_string(),
             layer_name,
@@ -286,6 +325,8 @@ fn get_layer_geojson(project_path: String, datasource: String) -> Result<String,
         source_args = vec![
             "-f".to_string(),
             "GeoJSON".to_string(),
+            "-t_srs".to_string(),
+            "EPSG:4326".to_string(),
             output_path_str.clone(),
             resolved.to_string_lossy().to_string(),
             "-oo".to_string(),
@@ -298,6 +339,8 @@ fn get_layer_geojson(project_path: String, datasource: String) -> Result<String,
         source_args = vec![
             "-f".to_string(),
             "GeoJSON".to_string(),
+            "-t_srs".to_string(),
+            "EPSG:4326".to_string(),
             output_path_str.clone(),
             resolved.to_string_lossy().to_string(),
         ];

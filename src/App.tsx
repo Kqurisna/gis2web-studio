@@ -18,13 +18,14 @@ const MENU_ITEMS: { key: MenuKey; label: string }[] = [
 function App() {
   const [activeMenu, setActiveMenu] = useState<MenuKey>("project");
 
+  const [projectPath, setProjectPath] = useState<string | null>(null);
   const [layers, setLayers] = useState<LayerInfo[]>([]);
   const [selectedLayerIndexes, setSelectedLayerIndexes] = useState<number[]>([]);
   const [boundaryLayerIndex, setBoundaryLayerIndex] = useState<number | null>(null);
 
   const [config, setConfig] = useState<WebGisConfig>({
     basemap: "osm",
-    minZoom: 0,
+    minZoom: 5,
     maxZoom: 18,
   });
 
@@ -55,7 +56,13 @@ function App() {
 
         <main className="app-main">
           {activeMenu === "layers" ? (
-            <MapView />
+            <MapView
+              projectPath={projectPath}
+              layers={layers}
+              selectedLayerIndexes={selectedLayerIndexes}
+              boundaryLayerIndex={boundaryLayerIndex}
+              config={config}
+            />
           ) : activeMenu === "project" ? (
             <ProjectPanel
               layers={layers}
@@ -64,6 +71,8 @@ function App() {
               onSelectedLayerIndexesChange={setSelectedLayerIndexes}
               boundaryLayerIndex={boundaryLayerIndex}
               onBoundaryLayerIndexChange={setBoundaryLayerIndex}
+              projectPath={projectPath}
+              onProjectPathChange={setProjectPath}
             />
           ) : activeMenu === "configuration" ? (
             <ConfigurationPanel config={config} onConfigChange={setConfig} />

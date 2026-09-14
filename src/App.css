@@ -256,3 +256,63 @@ body,
 .config-summary p {
   margin: 0.15rem 0;
 }
+
+.map-view-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 0.5rem;
+}
+
+.map-status-banner {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.map-error-banner {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.map-error-banner ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.map-view-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 0.5rem;
+}
+
+.map-status-banner {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.map-error-banner {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.map-error-banner ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}

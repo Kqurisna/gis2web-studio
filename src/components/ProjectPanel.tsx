@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 export interface LayerInfo {
   name: string;
   geometry_type: "Point" | "Line" | "Polygon" | "NoGeometry" | "Unknown";
+  datasource: string;
 }
 
 interface ProjectPanelProps {
@@ -14,6 +15,8 @@ interface ProjectPanelProps {
   onSelectedLayerIndexesChange: (indexes: number[]) => void;
   boundaryLayerIndex: number | null;
   onBoundaryLayerIndexChange: (index: number | null) => void;
+  projectPath: string | null;
+  onProjectPathChange: (path: string | null) => void;
 }
 
 function ProjectPanel({
@@ -23,8 +26,9 @@ function ProjectPanel({
   onSelectedLayerIndexesChange,
   boundaryLayerIndex,
   onBoundaryLayerIndexChange,
+  projectPath,
+  onProjectPathChange,
 }: ProjectPanelProps) {
-  const [projectPath, setProjectPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -37,7 +41,7 @@ function ProjectPanel({
 
     if (!selected || Array.isArray(selected)) return;
 
-    setProjectPath(selected);
+    onProjectPathChange(selected);
     setLoading(true);
     try {
       const result = await invoke<LayerInfo[]>("parse_qgis_project", {
