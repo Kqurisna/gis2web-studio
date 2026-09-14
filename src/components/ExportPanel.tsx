@@ -3,6 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import type { LayerInfo } from "./ProjectPanel";
 import type { WebGisConfig } from "./ConfigurationPanel";
+import { BASEMAP_TILE_INFO } from "./ConfigurationPanel";
 
 interface ExportPanelProps {
   projectPath: string | null;
@@ -81,6 +82,8 @@ function ExportPanel({
           basemap: config.basemap,
           min_zoom: config.minZoom,
           max_zoom: config.maxZoom,
+          tile_url: BASEMAP_TILE_INFO[config.basemap].url,
+          attribution: BASEMAP_TILE_INFO[config.basemap].attribution,
         },
       });
       setResultMessage(message);

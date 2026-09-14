@@ -1,5 +1,20 @@
 export type BasemapOption = "osm" | "satellite" | "topo";
 
+export const BASEMAP_TILE_INFO: Record<BasemapOption, { url: string; attribution: string }> = {
+  osm: {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; OpenStreetMap contributors",
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics",
+  },
+  topo: {
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: "Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap",
+  },
+};
+
 export interface WebGisConfig {
   basemap: BasemapOption;
   minZoom: number;
