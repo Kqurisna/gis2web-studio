@@ -2,6 +2,9 @@ import { useState } from "react";
 import "./App.css";
 import MapView from "./components/MapView";
 import ProjectPanel, { type LayerInfo } from "./components/ProjectPanel";
+import ConfigurationPanel, {
+  type WebGisConfig,
+} from "./components/ConfigurationPanel";
 
 type MenuKey = "project" | "layers" | "configuration" | "export";
 
@@ -18,6 +21,12 @@ function App() {
   const [layers, setLayers] = useState<LayerInfo[]>([]);
   const [selectedLayerIndexes, setSelectedLayerIndexes] = useState<number[]>([]);
   const [boundaryLayerIndex, setBoundaryLayerIndex] = useState<number | null>(null);
+
+  const [config, setConfig] = useState<WebGisConfig>({
+    basemap: "osm",
+    minZoom: 0,
+    maxZoom: 18,
+  });
 
   return (
     <div className="app-shell">
@@ -56,6 +65,8 @@ function App() {
               boundaryLayerIndex={boundaryLayerIndex}
               onBoundaryLayerIndexChange={setBoundaryLayerIndex}
             />
+          ) : activeMenu === "configuration" ? (
+            <ConfigurationPanel config={config} onConfigChange={setConfig} />
           ) : (
             <>
               <h2>{MENU_ITEMS.find((m) => m.key === activeMenu)?.label}</h2>

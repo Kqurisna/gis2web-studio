@@ -173,3 +173,86 @@ body,
 .layer-summary p {
   margin: 0.15rem 0;
 }
+
+.config-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 480px;
+}
+
+.config-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.config-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.config-radio-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.config-slider-block {
+  margin-bottom: 1.25rem;
+}
+
+.config-slider-label {
+  display: block;
+  font-size: 0.9rem;
+  color: #374151;
+  margin-bottom: 0.4rem;
+}
+
+.config-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.config-slider-row input[type="range"] {
+  flex: 1;
+}
+
+.config-slider-bound {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  width: 1.5rem;
+  text-align: center;
+}
+
+.config-slider-value {
+  text-align: center;
+  font-weight: 600;
+  color: #1f2937;
+  margin-top: 0.25rem;
+}
+
+.config-error {
+  color: #b91c1c;
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
+}
+
+.config-static-value {
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+.config-summary {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+  font-size: 0.9rem;
+  color: #1f2937;
+}
+
+.config-summary p {
+  margin: 0.15rem 0;
+}
