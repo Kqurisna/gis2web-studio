@@ -11,6 +11,7 @@ interface MapViewProps {
   selectedLayerIndexes: number[];
   boundaryLayerIndex: number | null;
   config: WebGisConfig;
+  layerColors: Record<number, string>;
 }
 
 interface BasemapTileDef {
@@ -42,6 +43,7 @@ function MapView({
   selectedLayerIndexes,
   boundaryLayerIndex,
   config,
+  layerColors,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -51,7 +53,6 @@ function MapView({
   const [layerErrors, setLayerErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Inisialisasi peta sekali saja
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -65,7 +66,6 @@ function MapView({
     };
   }, []);
 
-  // Update basemap & zoom limit saat config berubah
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -86,7 +86,6 @@ function MapView({
     map.setMaxZoom(config.maxZoom);
   }, [config.basemap, config.minZoom, config.maxZoom]);
 
-  // Fetch & render layer terpilih + boundary
   useEffect(() => {
     const map = mapRef.current;
     const group = dataLayerGroupRef.current;
@@ -124,15 +123,17 @@ function MapView({
           const geojsonData = JSON.parse(geojsonText);
 
           const isBoundary = index === boundaryLayerIndex;
+          const layerColor = layerColors[index] ?? (isBoundary ? "#f97316" : "#2563eb");
+
           const geoLayer = L.geoJSON(geojsonData, {
             style: isBoundary
-              ? { color: "#f97316", weight: 2, fillOpacity: 0 }
-              : { color: "#2563eb", weight: 1.5, fillOpacity: 0.25 },
+              ? { color: layerColor, weight: 2, fillOpacity: 0 }
+              : { color: layerColor, weight: 1.5, fillOpacity: 0.35 },
             pointToLayer: (_feature, latlng) =>
               L.circleMarker(latlng, {
                 radius: 5,
-                color: "#2563eb",
-                fillOpacity: 0.6,
+                color: layerColor,
+                fillOpacity: 0.7,
               }),
           });
 
@@ -140,8 +141,6 @@ function MapView({
             boundaryGeoLayer = geoLayer;
           }
 
-          // Hanya tampilkan di peta kalau termasuk layer yang dipilih untuk publikasi,
-          // ATAU dia adalah boundary (boundary selalu ditampilkan sebagai referensi).
           if (selectedLayerIndexes.includes(index) || isBoundary) {
             geoLayer.addTo(activeGroup);
           }
@@ -181,7 +180,7 @@ function MapView({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectPath, layers, selectedLayerIndexes, boundaryLayerIndex]);
+  }, [projectPath, layers, selectedLayerIndexes, boundaryLayerIndex, layerColors]);
 
   return (
     <div className="map-view-wrapper">

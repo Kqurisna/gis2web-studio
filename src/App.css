@@ -316,3 +316,27 @@ body,
   margin: 0.25rem 0 0;
   padding-left: 1.25rem;
 }
+
+.export-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 480px;
+}
+
+.export-success {
+  color: #15803d;
+  background-color: #f0fdf4;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.layer-table input[type="color"] {
+  width: 36px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+}

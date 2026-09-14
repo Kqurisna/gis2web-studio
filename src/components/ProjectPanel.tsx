@@ -17,6 +17,8 @@ interface ProjectPanelProps {
   onBoundaryLayerIndexChange: (index: number | null) => void;
   projectPath: string | null;
   onProjectPathChange: (path: string | null) => void;
+  layerColors: Record<number, string>;
+  onLayerColorChange: (index: number, color: string) => void;
 }
 
 function ProjectPanel({
@@ -28,6 +30,8 @@ function ProjectPanel({
   onBoundaryLayerIndexChange,
   projectPath,
   onProjectPathChange,
+  layerColors,
+  onLayerColorChange,
 }: ProjectPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -88,11 +92,13 @@ function ProjectPanel({
                 <th>Boundary</th>
                 <th>Nama Layer</th>
                 <th>Tipe Geometri</th>
+                <th>Warna</th>
               </tr>
             </thead>
             <tbody>
               {layers.map((layer, index) => {
                 const isPolygon = layer.geometry_type === "Polygon";
+                const color = layerColors[index] ?? "#2563eb";
                 return (
                   <tr key={index}>
                     <td>
@@ -122,6 +128,14 @@ function ProjectPanel({
                       {!isPolygon && (
                         <span className="layer-note"> (bukan polygon)</span>
                       )}
+                    </td>
+                    <td>
+                      <input
+                        type="color"
+                        value={color}
+                        onChange={(e) => onLayerColorChange(index, e.target.value)}
+                        title="Pilih warna layer"
+                      />
                     </td>
                   </tr>
                 );
