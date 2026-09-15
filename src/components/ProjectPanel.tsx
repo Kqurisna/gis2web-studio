@@ -35,6 +35,7 @@ function ProjectPanel({
 }: ProjectPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   async function handleImport() {
     setError(null);
@@ -73,7 +74,21 @@ function ProjectPanel({
   }
 
   return (
-    <div className="project-panel">
+    <div className={"layer-overlay-panel" + (collapsed ? " collapsed" : " expanded")}>
+      <div className="layer-overlay-header">
+        {!collapsed && <span className="layer-overlay-title">Layers</span>}
+        <button
+          type="button"
+          className="layer-overlay-toggle-btn"
+          onClick={() => setCollapsed((c) => !c)}
+          title={collapsed ? "Buka panel layer" : "Tutup panel layer"}
+        >
+          {collapsed ? "\u2630" : "\u2715"}
+        </button>
+      </div>
+      {!collapsed && (
+      <div className="layer-overlay-body">
+      <div className="project-panel">
       <button type="button" onClick={handleImport} disabled={loading}>
         {loading ? "Membaca project..." : "Import Project"}
       </button>
@@ -153,6 +168,9 @@ function ProjectPanel({
             </p>
           </div>
         </div>
+      )}
+    </div>
+      </div>
       )}
     </div>
   );

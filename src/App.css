@@ -340,3 +340,87 @@ body,
   border-radius: 4px;
   cursor: pointer;
 }
+
+.app-main--full-bleed {
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.project-map-layout {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.project-map-layout .map-view-wrapper {
+  height: 100%;
+}
+
+.project-map-layout .map-container {
+  border-radius: 0;
+}
+
+.layer-overlay-panel {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1000;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  max-height: calc(100% - 2rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.15s ease;
+}
+
+.layer-overlay-panel.collapsed {
+  width: 44px;
+}
+
+.layer-overlay-panel.expanded {
+  width: 380px;
+  max-width: calc(100vw - 2rem);
+}
+
+.layer-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.layer-overlay-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+
+.layer-overlay-toggle-btn {
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  color: #1f2937;
+}
+
+.layer-overlay-toggle-btn:hover {
+  background-color: #f0f0f0;
+}
+
+.layer-overlay-body {
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.layer-overlay-panel .layer-table {
+  max-width: 100%;
+  font-size: 0.82rem;
+}
+

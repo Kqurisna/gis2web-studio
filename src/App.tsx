@@ -7,11 +7,10 @@ import ConfigurationPanel, {
 } from "./components/ConfigurationPanel";
 import ExportPanel from "./components/ExportPanel";
 
-type MenuKey = "project" | "layers" | "configuration" | "export";
+type MenuKey = "project" | "configuration" | "export";
 
 const MENU_ITEMS: { key: MenuKey; label: string }[] = [
   { key: "project", label: "Project" },
-  { key: "layers", label: "Layers" },
   { key: "configuration", label: "Configuration" },
   { key: "export", label: "Export" },
 ];
@@ -65,29 +64,30 @@ function App() {
           ))}
         </nav>
 
-        <main className="app-main">
-          {activeMenu === "layers" ? (
-            <MapView
-              projectPath={projectPath}
-              layers={layers}
-              selectedLayerIndexes={selectedLayerIndexes}
-              boundaryLayerIndex={boundaryLayerIndex}
-              config={config}
-              layerColors={layerColors}
-            />
-          ) : activeMenu === "project" ? (
-            <ProjectPanel
-              layers={layers}
-              onLayersLoaded={handleLayersLoaded}
-              selectedLayerIndexes={selectedLayerIndexes}
-              onSelectedLayerIndexesChange={setSelectedLayerIndexes}
-              boundaryLayerIndex={boundaryLayerIndex}
-              onBoundaryLayerIndexChange={setBoundaryLayerIndex}
-              projectPath={projectPath}
-              onProjectPathChange={setProjectPath}
-              layerColors={layerColors}
-              onLayerColorChange={handleLayerColorChange}
-            />
+        <main className={"app-main" + (activeMenu === "project" ? " app-main--full-bleed" : "")}>
+          {activeMenu === "project" ? (
+            <div className="project-map-layout">
+              <MapView
+                projectPath={projectPath}
+                layers={layers}
+                selectedLayerIndexes={selectedLayerIndexes}
+                boundaryLayerIndex={boundaryLayerIndex}
+                config={config}
+                layerColors={layerColors}
+              />
+              <ProjectPanel
+                layers={layers}
+                onLayersLoaded={handleLayersLoaded}
+                selectedLayerIndexes={selectedLayerIndexes}
+                onSelectedLayerIndexesChange={setSelectedLayerIndexes}
+                boundaryLayerIndex={boundaryLayerIndex}
+                onBoundaryLayerIndexChange={setBoundaryLayerIndex}
+                projectPath={projectPath}
+                onProjectPathChange={setProjectPath}
+                layerColors={layerColors}
+                onLayerColorChange={handleLayerColorChange}
+              />
+            </div>
           ) : activeMenu === "configuration" ? (
             <ConfigurationPanel config={config} onConfigChange={setConfig} />
           ) : activeMenu === "export" ? (
