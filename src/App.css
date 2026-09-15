@@ -611,3 +611,50 @@ button {
   font-size: 0.88rem;
   font-weight: 500;
 }
+
+/* ---------- Feature Popup (click on map feature) ---------- */
+
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 0;
+}
+
+.leaflet-popup-content {
+  margin: 0;
+}
+
+.feature-popup {
+  padding: 0.5rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.feature-popup-table {
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.feature-popup-table th,
+.feature-popup-table td {
+  text-align: left;
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.feature-popup-table tr:last-child th,
+.feature-popup-table tr:last-child td {
+  border-bottom: none;
+}
+
+.feature-popup-table th {
+  color: var(--color-text-faint);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.feature-popup-table td {
+  color: var(--color-text);
+  word-break: break-word;
+}

@@ -37,6 +37,15 @@ const BASEMAP_TILE_CONFIG: Record<BasemapOption, BasemapTileDef> = {
   },
 };
 
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function MapView({
   projectPath,
   layers,
@@ -135,6 +144,23 @@ function MapView({
                 color: layerColor,
                 fillOpacity: 0.7,
               }),
+            onEachFeature: (feature, layerInstance) => {
+              const properties = feature.properties as Record<string, unknown> | null;
+              if (!properties || Object.keys(properties).length === 0) return;
+
+              const rows = Object.entries(properties)
+                .map(
+                  ([key, value]) =>
+                    `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(
+                      value === null || value === undefined ? "-" : String(value)
+                    )}</td></tr>`
+                )
+                .join("");
+
+              layerInstance.bindPopup(
+                `<div class="feature-popup"><table class="feature-popup-table">${rows}</table></div>`
+              );
+            },
           });
 
           if (isBoundary) {
