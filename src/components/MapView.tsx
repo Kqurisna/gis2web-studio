@@ -12,6 +12,8 @@ interface MapViewProps {
   boundaryLayerIndex: number | null;
   config: WebGisConfig;
   layerColors: Record<number, string>;
+  activeLayerIndex: number | null;
+  onFocusLayer: (index: number) => void;
 }
 
 interface BasemapTileDef {
@@ -37,13 +39,10 @@ const BASEMAP_TILE_CONFIG: Record<BasemapOption, BasemapTileDef> = {
   },
 };
 
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+function styleForLayer(color: string, isBoundary: boolean): L.PathOptions {
+  return isBoundary
+    ? { color, weight: 2, fillOpacity: 0 }
+    : { color, weight: 1.5, fillOpacity: 0.35 };
 }
 
 function MapView({
@@ -53,11 +52,15 @@ function MapView({
   boundaryLayerIndex,
   config,
   layerColors,
+  activeLayerIndex,
+  onFocusLayer,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const dataLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const layerRefsRef = useRef<Map<number, L.GeoJSON>>(new Map());
+  const layerStyleRef = useRef<Map<number, L.PathOptions>>(new Map());
 
   const [layerErrors, setLayerErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -113,6 +116,8 @@ function MapView({
       setIsLoading(true);
       setLayerErrors([]);
       activeGroup.clearLayers();
+      layerRefsRef.current.clear();
+      layerStyleRef.current.clear();
 
       const errors: string[] = [];
       let boundaryGeoLayer: L.GeoJSON | null = null;
@@ -137,35 +142,22 @@ function MapView({
 
           const isBoundary = index === boundaryLayerIndex;
           const layerColor = layerColors[index] ?? (isBoundary ? "#f97316" : "#2563eb");
+          const style = styleForLayer(layerColor, isBoundary);
 
           const geoLayer = L.geoJSON(geojsonData, {
-            style: isBoundary
-              ? { color: layerColor, weight: 2, fillOpacity: 0 }
-              : { color: layerColor, weight: 1.5, fillOpacity: 0.35 },
+            style,
             pointToLayer: (_feature, latlng) =>
               L.circleMarker(latlng, {
                 radius: 5,
                 color: layerColor,
                 fillOpacity: 0.7,
               }),
-            onEachFeature: (feature, layerInstance) => {
-              const properties = feature.properties as Record<string, unknown> | null;
-              if (!properties || Object.keys(properties).length === 0) return;
-
-              const rows = Object.entries(properties)
-                .map(
-                  ([key, value]) =>
-                    `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(
-                      value === null || value === undefined ? "-" : String(value)
-                    )}</td></tr>`
-                )
-                .join("");
-
-              layerInstance.bindPopup(
-                `<div class="feature-popup"><table class="feature-popup-table">${rows}</table></div>`
-              );
-            },
           });
+
+          geoLayer.on("click", () => onFocusLayer(index));
+
+          layerRefsRef.current.set(index, geoLayer);
+          layerStyleRef.current.set(index, style);
 
           if (isBoundary) {
             boundaryGeoLayer = geoLayer;
@@ -211,6 +203,31 @@ function MapView({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectPath, layers, selectedLayerIndexes, boundaryLayerIndex, layerColors]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || activeLayerIndex === null) return;
+
+    const geoLayer = layerRefsRef.current.get(activeLayerIndex);
+    if (!geoLayer) return;
+
+    const bounds = geoLayer.getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { maxZoom: config.maxZoom, padding: [40, 40] });
+    }
+
+    geoLayer.setStyle({ weight: 5 });
+
+    const timeout = window.setTimeout(() => {
+      const originalStyle = layerStyleRef.current.get(activeLayerIndex);
+      if (originalStyle) {
+        geoLayer.setStyle(originalStyle);
+      }
+    }, 900);
+
+    return () => window.clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayerIndex]);
 
   return (
     <div className="map-view-wrapper">

@@ -2,6 +2,7 @@ import { useState } from "react";
 import "./App.css";
 import MapView from "./components/MapView";
 import ProjectPanel, { type LayerInfo } from "./components/ProjectPanel";
+import ImportToolbar from "./components/ImportToolbar";
 import ConfigurationPanel, {
   type WebGisConfig,
 } from "./components/ConfigurationPanel";
@@ -23,6 +24,7 @@ function App() {
   const [selectedLayerIndexes, setSelectedLayerIndexes] = useState<number[]>([]);
   const [boundaryLayerIndex, setBoundaryLayerIndex] = useState<number | null>(null);
   const [layerColors, setLayerColors] = useState<Record<number, string>>({});
+  const [activeLayerIndex, setActiveLayerIndex] = useState<number | null>(null);
 
   const [config, setConfig] = useState<WebGisConfig>({
     basemap: "osm",
@@ -33,6 +35,7 @@ function App() {
   function handleLayersLoaded(newLayers: LayerInfo[]) {
     setLayers(newLayers);
     setLayerColors({});
+    setActiveLayerIndex(null);
   }
 
   function handleLayerColorChange(index: number, color: string) {
@@ -67,27 +70,38 @@ function App() {
 
         <main className={"app-main" + (activeMenu === "project" ? " app-main--full-bleed" : "")}>
           {activeMenu === "project" ? (
-            <div className="project-map-layout">
-              <MapView
-                projectPath={projectPath}
-                layers={layers}
-                selectedLayerIndexes={selectedLayerIndexes}
-                boundaryLayerIndex={boundaryLayerIndex}
-                config={config}
-                layerColors={layerColors}
-              />
-              <ProjectPanel
-                layers={layers}
-                onLayersLoaded={handleLayersLoaded}
-                selectedLayerIndexes={selectedLayerIndexes}
-                onSelectedLayerIndexesChange={setSelectedLayerIndexes}
-                boundaryLayerIndex={boundaryLayerIndex}
-                onBoundaryLayerIndexChange={setBoundaryLayerIndex}
+            <div className="project-view">
+              <ImportToolbar
                 projectPath={projectPath}
                 onProjectPathChange={setProjectPath}
-                layerColors={layerColors}
-                onLayerColorChange={handleLayerColorChange}
+                onLayersLoaded={handleLayersLoaded}
+                onSelectedLayerIndexesChange={setSelectedLayerIndexes}
+                onBoundaryLayerIndexChange={setBoundaryLayerIndex}
               />
+              <div className="project-map-layout">
+                <MapView
+                  projectPath={projectPath}
+                  layers={layers}
+                  selectedLayerIndexes={selectedLayerIndexes}
+                  boundaryLayerIndex={boundaryLayerIndex}
+                  config={config}
+                  layerColors={layerColors}
+                  activeLayerIndex={activeLayerIndex}
+                  onFocusLayer={setActiveLayerIndex}
+                />
+                <ProjectPanel
+                  layers={layers}
+                  hasProject={projectPath !== null}
+                  selectedLayerIndexes={selectedLayerIndexes}
+                  onSelectedLayerIndexesChange={setSelectedLayerIndexes}
+                  boundaryLayerIndex={boundaryLayerIndex}
+                  onBoundaryLayerIndexChange={setBoundaryLayerIndex}
+                  layerColors={layerColors}
+                  onLayerColorChange={handleLayerColorChange}
+                  activeLayerIndex={activeLayerIndex}
+                  onFocusLayer={setActiveLayerIndex}
+                />
+              </div>
             </div>
           ) : activeMenu === "configuration" ? (
             <ConfigurationPanel config={config} onConfigChange={setConfig} />
