@@ -75,17 +75,31 @@ function ProjectPanel({
 
   return (
     <div className={"layer-overlay-panel" + (collapsed ? " collapsed" : " expanded")}>
-      <div className="layer-overlay-header">
-        {!collapsed && <span className="layer-overlay-title">Layers</span>}
+      {collapsed ? (
         <button
           type="button"
-          className="layer-overlay-toggle-btn"
-          onClick={() => setCollapsed((c) => !c)}
-          title={collapsed ? "Buka panel layer" : "Tutup panel layer"}
+          className="layer-overlay-toggle-btn layer-overlay-toggle-btn--collapsed"
+          onClick={() => setCollapsed(false)}
+          title="Buka panel layer"
         >
-          {collapsed ? "\u2630" : "\u2715"}
+          {"\u2630"}
         </button>
-      </div>
+      ) : (
+        <div className="layer-overlay-header">
+          <span className="layer-overlay-title">
+            <span className="layer-overlay-title-icon">{"\uD83D\uDDFA\uFE0F"}</span>
+            Layers
+          </span>
+          <button
+            type="button"
+            className="layer-overlay-toggle-btn"
+            onClick={() => setCollapsed(true)}
+            title="Tutup panel layer"
+          >
+            {"\u2715"}
+          </button>
+        </div>
+      )}
       {!collapsed && (
       <div className="layer-overlay-body">
       <div className="project-panel">
@@ -96,6 +110,17 @@ function ProjectPanel({
       {projectPath && <p className="project-path">Project: {projectPath}</p>}
 
       {error && <p className="project-error">Error: {error}</p>}
+
+      {!projectPath && !loading && (
+        <div className="project-empty-state">
+          <div className="project-empty-icon">{"\uD83D\uDCC1"}</div>
+          <p className="project-empty-title">Belum ada project</p>
+          <p className="project-empty-text">
+            Import file .qgz atau .qgs dari QGIS untuk mulai memilih layer
+            yang ingin dipublikasikan ke Web GIS.
+          </p>
+        </div>
+      )}
 
       {layers.length > 0 && (
         <div className="layer-list">

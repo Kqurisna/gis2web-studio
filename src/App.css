@@ -7,9 +7,9 @@
   --color-text-muted: #71717a;
   --color-text-faint: #a1a1aa;
 
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
-  --color-primary-soft: #eef0ff;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-soft: #eff6ff;
 
   --color-success: #15803d;
   --color-success-bg: #f0fdf4;
@@ -59,9 +59,9 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.85rem 1.35rem;
-  background-color: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  padding: 0.7rem 1.35rem;
+  background-color: #111827;
+  border-bottom: 1px solid #1f2937;
   flex-shrink: 0;
   z-index: 10;
 }
@@ -73,7 +73,7 @@ button {
   font-weight: 700;
   font-size: 1.02rem;
   letter-spacing: -0.01em;
-  color: var(--color-text);
+  color: #ffffff;
 }
 
 .app-title::before {
@@ -81,27 +81,25 @@ button {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--color-primary);
+  background: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
   flex-shrink: 0;
 }
 
 .settings-button {
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   padding: 0.42rem 0.95rem;
   font-size: 0.83rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.12s ease, box-shadow 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .settings-button:hover {
-  background: var(--color-surface-alt);
-  color: var(--color-text);
-  border-color: var(--color-text-faint);
-  box-shadow: var(--shadow-sm);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .app-body {
@@ -125,6 +123,9 @@ button {
 
 .sidebar-item {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
   text-align: left;
   background: transparent;
   border: none;
@@ -135,6 +136,18 @@ button {
   cursor: pointer;
   color: var(--color-text-muted);
   transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.sidebar-item-icon {
+  font-size: 1rem;
+  line-height: 1;
+  width: 1.2rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.sidebar-item-label {
+  flex: 1;
 }
 
 .sidebar-item::before {
@@ -310,6 +323,9 @@ button {
 
 .layer-overlay-panel.collapsed {
   width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-md);
 }
 
 .layer-overlay-panel.expanded {
@@ -327,9 +343,16 @@ button {
 }
 
 .layer-overlay-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--color-text);
+}
+
+.layer-overlay-title-icon {
+  font-size: 0.95rem;
 }
 
 .layer-overlay-toggle-btn {
@@ -345,11 +368,25 @@ button {
   border-radius: 999px;
   color: var(--color-text);
   transition: background-color 0.12s ease;
+  flex-shrink: 0;
 }
 
 .layer-overlay-toggle-btn:hover {
   background-color: var(--color-primary-soft);
   color: var(--color-primary-hover);
+}
+
+.layer-overlay-toggle-btn--collapsed {
+  width: 46px;
+  height: 46px;
+  border: none;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  font-size: 1.05rem;
+}
+
+.layer-overlay-toggle-btn--collapsed:hover {
+  background: var(--color-primary-soft);
 }
 
 .layer-overlay-body {
@@ -369,6 +406,7 @@ button {
   flex-direction: column;
   gap: 1rem;
   align-items: flex-start;
+  width: 100%;
 }
 
 .project-path {
@@ -388,6 +426,34 @@ button {
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
   width: 100%;
+}
+
+.project-empty-state {
+  width: 100%;
+  text-align: center;
+  padding: 1.5rem 1rem;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+
+.project-empty-icon {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.project-empty-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  margin: 0 0 0.35rem;
+}
+
+.project-empty-text {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.45;
 }
 
 .layer-list {
@@ -418,7 +484,7 @@ button {
 .layer-table th,
 .layer-table td {
   text-align: left;
-  padding: 0.5rem 0.6rem;
+  padding: 0.55rem 0.65rem;
   border-bottom: 1px solid var(--color-border);
   font-size: 0.85rem;
 }
@@ -434,7 +500,7 @@ button {
 .layer-table th {
   color: var(--color-text-faint);
   font-weight: 600;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   background-color: var(--color-surface-alt);

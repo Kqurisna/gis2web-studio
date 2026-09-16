@@ -9,10 +9,10 @@ import ExportPanel from "./components/ExportPanel";
 
 type MenuKey = "project" | "configuration" | "export";
 
-const MENU_ITEMS: { key: MenuKey; label: string }[] = [
-  { key: "project", label: "Project" },
-  { key: "configuration", label: "Configuration" },
-  { key: "export", label: "Export" },
+const MENU_ITEMS: { key: MenuKey; label: string; icon: string }[] = [
+  { key: "project", label: "Project", icon: "\uD83D\uDDFA\uFE0F" },
+  { key: "configuration", label: "Configuration", icon: "\u2699\uFE0F" },
+  { key: "export", label: "Export", icon: "\u2B07\uFE0F" },
 ];
 
 function App() {
@@ -59,7 +59,8 @@ function App() {
               }
               onClick={() => setActiveMenu(item.key)}
             >
-              {item.label}
+              <span className="sidebar-item-icon">{item.icon}</span>
+              <span className="sidebar-item-label">{item.label}</span>
             </button>
           ))}
         </nav>

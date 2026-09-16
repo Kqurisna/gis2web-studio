@@ -65,7 +65,11 @@ function MapView({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = L.map(containerRef.current).setView([-2.5, 118], 5);
+    const map = L.map(containerRef.current, { zoomControl: false }).setView(
+      [-2.5, 118],
+      5
+    );
+    L.control.zoom({ position: "bottomright" }).addTo(map);
     dataLayerGroupRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
 
