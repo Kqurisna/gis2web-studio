@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { invoke } from "@tauri-apps/api/core";
+import { fetchLayerGeojson } from "../lib/layerGeojsonCache";
 import type { LayerInfo } from "./ProjectPanel";
 import type { WebGisConfig, BasemapOption } from "./ConfigurationPanel";
 
@@ -124,6 +124,7 @@ function MapView({
 
     const activeMap = map;
     const activeGroup = group;
+    const activeProjectPath = projectPath;
 
     let cancelled = false;
 
@@ -149,10 +150,7 @@ function MapView({
         if (!layer) continue;
 
         try {
-          const geojsonText = await invoke<string>("get_layer_geojson", {
-            projectPath,
-            datasource: layer.datasource,
-          });
+          const geojsonText = await fetchLayerGeojson(activeProjectPath, layer.datasource);
           const geojsonData = JSON.parse(geojsonText);
 
           const isBoundary = index === boundaryLayerIndex;

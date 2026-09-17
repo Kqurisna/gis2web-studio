@@ -2,6 +2,7 @@ import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import type { LayerInfo } from "./ProjectPanel";
+import { clearLayerGeojsonCache, prefetchAllLayers } from "../lib/layerGeojsonCache";
 
 interface ImportToolbarProps {
   projectPath: string | null;
@@ -19,6 +20,7 @@ function ImportToolbar({
   onBoundaryLayerIndexChange,
 }: ImportToolbarProps) {
   const [loading, setLoading] = useState(false);
+  const [loadingLabel, setLoadingLabel] = useState("Membaca project...");
   const [error, setError] = useState<string | null>(null);
 
   async function handleImport() {
@@ -32,6 +34,9 @@ function ImportToolbar({
 
     onProjectPathChange(selected);
     setLoading(true);
+    setLoadingLabel("Membaca project...");
+    clearLayerGeojsonCache();
+
     try {
       const result = await invoke<LayerInfo[]>("parse_qgis_project", {
         path: selected,
@@ -39,6 +44,14 @@ function ImportToolbar({
       onLayersLoaded(result);
       onSelectedLayerIndexesChange([]);
       onBoundaryLayerIndexChange(null);
+
+      if (result.length > 0) {
+        setLoadingLabel(`Menyiapkan preview ${result.length} layer...`);
+        await prefetchAllLayers(
+          selected,
+          result.map((l) => l.datasource)
+        );
+      }
     } catch (err) {
       setError(String(err));
       onLayersLoaded([]);
@@ -55,7 +68,7 @@ function ImportToolbar({
         onClick={handleImport}
         disabled={loading}
       >
-        {loading ? "Membaca project..." : "\u{1F4C1} Import Project"}
+        {loading ? loadingLabel : "\u{1F4C1} Import Project"}
       </button>
 
       {projectPath && (
