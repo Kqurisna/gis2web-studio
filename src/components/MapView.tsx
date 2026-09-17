@@ -190,7 +190,11 @@ function MapView({
         if (boundaryGeoLayer) {
           const bounds = boundaryGeoLayer.getBounds();
           if (bounds.isValid()) {
-            activeMap.fitBounds(bounds, { maxZoom: config.maxZoom });
+            activeMap.flyToBounds(bounds, {
+              maxZoom: config.maxZoom,
+              duration: 1.6,
+              easeLinearity: 0.25,
+            });
           }
         }
       }
@@ -213,7 +217,12 @@ function MapView({
 
     const bounds = geoLayer.getBounds();
     if (bounds.isValid()) {
-      map.fitBounds(bounds, { maxZoom: config.maxZoom, padding: [40, 40] });
+      map.flyToBounds(bounds, {
+        maxZoom: config.maxZoom,
+        padding: [40, 40],
+        duration: 1.0,
+        easeLinearity: 0.25,
+      });
     }
 
     geoLayer.setStyle({ weight: 5 });
