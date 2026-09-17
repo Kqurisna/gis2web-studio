@@ -192,8 +192,8 @@ function MapView({
           if (bounds.isValid()) {
             activeMap.flyToBounds(bounds, {
               maxZoom: config.maxZoom,
-              duration: 1.6,
-              easeLinearity: 0.25,
+              duration: 2.4,
+              easeLinearity: 0.08,
             });
           }
         }
@@ -220,8 +220,8 @@ function MapView({
       map.flyToBounds(bounds, {
         maxZoom: config.maxZoom,
         padding: [40, 40],
-        duration: 1.0,
-        easeLinearity: 0.25,
+        duration: 1.6,
+        easeLinearity: 0.08,
       });
     }
 
