@@ -213,7 +213,7 @@ function MapView({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectPath, layers, selectedLayerIndexes, boundaryLayerIndex, layerColors]);
+  }, [projectPath, layers, selectedLayerIndexes, boundaryLayerIndex, layerColors, layerOpacities]);
 
   useEffect(() => {
     const map = mapRef.current;
