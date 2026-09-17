@@ -808,3 +808,27 @@ button {
 .layer-table tbody tr.active-row td {
   color: var(--color-primary-hover);
 }
+
+/* ---------- Opacity control in layer table ---------- */
+
+.opacity-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 100px;
+}
+
+.opacity-cell input[type="range"] {
+  flex: 1;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+  min-width: 60px;
+}
+
+.opacity-value {
+  font-size: 0.72rem;
+  color: var(--color-text-faint);
+  width: 2.2rem;
+  text-align: right;
+  flex-shrink: 0;
+}

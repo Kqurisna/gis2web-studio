@@ -24,6 +24,7 @@ function App() {
   const [selectedLayerIndexes, setSelectedLayerIndexes] = useState<number[]>([]);
   const [boundaryLayerIndex, setBoundaryLayerIndex] = useState<number | null>(null);
   const [layerColors, setLayerColors] = useState<Record<number, string>>({});
+  const [layerOpacities, setLayerOpacities] = useState<Record<number, number>>({});
   const [activeLayerIndex, setActiveLayerIndex] = useState<number | null>(null);
 
   const [config, setConfig] = useState<WebGisConfig>({
@@ -40,6 +41,10 @@ function App() {
 
   function handleLayerColorChange(index: number, color: string) {
     setLayerColors((prev) => ({ ...prev, [index]: color }));
+  }
+
+  function handleLayerOpacityChange(index: number, opacity: number) {
+    setLayerOpacities((prev) => ({ ...prev, [index]: opacity }));
   }
 
   return (
@@ -86,6 +91,7 @@ function App() {
                   boundaryLayerIndex={boundaryLayerIndex}
                   config={config}
                   layerColors={layerColors}
+                  layerOpacities={layerOpacities}
                   activeLayerIndex={activeLayerIndex}
                   onFocusLayer={setActiveLayerIndex}
                 />
@@ -98,6 +104,8 @@ function App() {
                   onBoundaryLayerIndexChange={setBoundaryLayerIndex}
                   layerColors={layerColors}
                   onLayerColorChange={handleLayerColorChange}
+                  layerOpacities={layerOpacities}
+                  onLayerOpacityChange={handleLayerOpacityChange}
                   activeLayerIndex={activeLayerIndex}
                   onFocusLayer={setActiveLayerIndex}
                 />
@@ -112,6 +120,7 @@ function App() {
               selectedLayerIndexes={selectedLayerIndexes}
               boundaryLayerIndex={boundaryLayerIndex}
               layerColors={layerColors}
+              layerOpacities={layerOpacities}
               config={config}
             />
           ) : (

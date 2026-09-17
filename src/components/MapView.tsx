@@ -12,6 +12,7 @@ interface MapViewProps {
   boundaryLayerIndex: number | null;
   config: WebGisConfig;
   layerColors: Record<number, string>;
+  layerOpacities: Record<number, number>;
   activeLayerIndex: number | null;
   onFocusLayer: (index: number) => void;
 }
@@ -39,10 +40,14 @@ const BASEMAP_TILE_CONFIG: Record<BasemapOption, BasemapTileDef> = {
   },
 };
 
-function styleForLayer(color: string, isBoundary: boolean): L.PathOptions {
+function styleForLayer(
+  color: string,
+  isBoundary: boolean,
+  fillOpacity: number
+): L.PathOptions {
   return isBoundary
     ? { color, weight: 2, fillOpacity: 0 }
-    : { color, weight: 1.5, fillOpacity: 0.35 };
+    : { color, weight: 1.5, fillOpacity };
 }
 
 function MapView({
@@ -52,6 +57,7 @@ function MapView({
   boundaryLayerIndex,
   config,
   layerColors,
+  layerOpacities,
   activeLayerIndex,
   onFocusLayer,
 }: MapViewProps) {
@@ -142,7 +148,8 @@ function MapView({
 
           const isBoundary = index === boundaryLayerIndex;
           const layerColor = layerColors[index] ?? (isBoundary ? "#f97316" : "#2563eb");
-          const style = styleForLayer(layerColor, isBoundary);
+          const layerOpacity = layerOpacities[index] ?? 0.35;
+          const style = styleForLayer(layerColor, isBoundary, layerOpacity);
 
           const geoLayer = L.geoJSON(geojsonData, {
             style,
@@ -150,7 +157,7 @@ function MapView({
               L.circleMarker(latlng, {
                 radius: 5,
                 color: layerColor,
-                fillOpacity: 0.7,
+                fillOpacity: layerOpacity,
               }),
           });
 

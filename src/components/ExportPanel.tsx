@@ -11,6 +11,7 @@ interface ExportPanelProps {
   selectedLayerIndexes: number[];
   boundaryLayerIndex: number | null;
   layerColors: Record<number, string>;
+  layerOpacities: Record<number, number>;
   config: WebGisConfig;
 }
 
@@ -18,6 +19,7 @@ interface ExportLayerInput {
   name: string;
   datasource: string;
   color: string;
+  opacity: number;
   is_boundary: boolean;
 }
 
@@ -27,6 +29,7 @@ function ExportPanel({
   selectedLayerIndexes,
   boundaryLayerIndex,
   layerColors,
+  layerOpacities,
   config,
 }: ExportPanelProps) {
   const [outputDir, setOutputDir] = useState<string | null>(null);
@@ -69,6 +72,7 @@ function ExportPanel({
           name: layer.name,
           datasource: layer.datasource,
           color: layerColors[index] ?? (index === boundaryLayerIndex ? "#f97316" : "#2563eb"),
+          opacity: layerOpacities[index] ?? 0.35,
           is_boundary: index === boundaryLayerIndex,
         };
       });

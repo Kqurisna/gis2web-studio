@@ -15,6 +15,8 @@ interface ProjectPanelProps {
   onBoundaryLayerIndexChange: (index: number | null) => void;
   layerColors: Record<number, string>;
   onLayerColorChange: (index: number, color: string) => void;
+  layerOpacities: Record<number, number>;
+  onLayerOpacityChange: (index: number, opacity: number) => void;
   activeLayerIndex: number | null;
   onFocusLayer: (index: number) => void;
 }
@@ -28,6 +30,8 @@ function ProjectPanel({
   onBoundaryLayerIndexChange,
   layerColors,
   onLayerColorChange,
+  layerOpacities,
+  onLayerOpacityChange,
   activeLayerIndex,
   onFocusLayer,
 }: ProjectPanelProps) {
@@ -96,12 +100,14 @@ function ProjectPanel({
                       <th>Nama Layer</th>
                       <th>Tipe Geometri</th>
                       <th>Warna</th>
+                      <th>Opacity</th>
                     </tr>
                   </thead>
                   <tbody>
                     {layers.map((layer, index) => {
                       const isPolygon = layer.geometry_type === "Polygon";
                       const color = layerColors[index] ?? "#2563eb";
+                      const opacity = layerOpacities[index] ?? (isPolygon ? 0.35 : 0.7);
                       const isActive = activeLayerIndex === index;
                       return (
                         <tr
@@ -144,6 +150,22 @@ function ProjectPanel({
                               onChange={(e) => onLayerColorChange(index, e.target.value)}
                               title="Pilih warna layer"
                             />
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()} className="opacity-cell">
+                            <input
+                              type="range"
+                              min={0}
+                              max={1}
+                              step={0.05}
+                              value={opacity}
+                              onChange={(e) =>
+                                onLayerOpacityChange(index, Number(e.target.value))
+                              }
+                              title="Atur opacity layer"
+                            />
+                            <span className="opacity-value">
+                              {Math.round(opacity * 100)}%
+                            </span>
                           </td>
                         </tr>
                       );

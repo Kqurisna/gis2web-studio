@@ -385,6 +385,7 @@ struct ExportLayerInput {
     name: String,
     datasource: String,
     color: String,
+    opacity: f64,
     is_boundary: bool,
 }
 
@@ -449,10 +450,10 @@ CONFIG.layers.forEach((layer) => {{
         style: {{
           color: layer.color,
           weight: 2,
-          fillOpacity: layer.isBoundary ? 0.05 : 0.3,
+          fillOpacity: layer.isBoundary ? 0 : layer.opacity,
         }},
         pointToLayer: (feature, latlng) =>
-          L.circleMarker(latlng, {{ radius: 5, color: layer.color, fillOpacity: 0.7 }}),
+          L.circleMarker(latlng, {{ radius: 5, color: layer.color, fillOpacity: layer.opacity }}),
       }}).addTo(map);
 
       if (layer.isBoundary) {{
@@ -507,6 +508,7 @@ fn export_web_gis(
             "file": format!("data/{file_name}"),
             "name": layer.name,
             "color": layer.color,
+            "opacity": layer.opacity,
             "isBoundary": layer.is_boundary,
         }));
     }
