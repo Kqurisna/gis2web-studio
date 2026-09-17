@@ -13,6 +13,7 @@ interface MapViewProps {
   config: WebGisConfig;
   layerColors: Record<number, string>;
   layerOpacities: Record<number, number>;
+  layerOrder: number[];
   activeLayerIndex: number | null;
   onFocusLayer: (index: number) => void;
 }
@@ -58,6 +59,7 @@ function MapView({
   config,
   layerColors,
   layerOpacities,
+  layerOrder,
   activeLayerIndex,
   onFocusLayer,
 }: MapViewProps) {
@@ -67,9 +69,16 @@ function MapView({
   const dataLayerGroupRef = useRef<L.LayerGroup | null>(null);
   const layerRefsRef = useRef<Map<number, L.GeoJSON>>(new Map());
   const layerStyleRef = useRef<Map<number, L.PathOptions>>(new Map());
+  const layerOrderRef = useRef<number[]>(layerOrder);
 
   const [layerErrors, setLayerErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  function applyStackingOrder(order: number[]) {
+    [...order].reverse().forEach((idx) => {
+      layerRefsRef.current.get(idx)?.bringToFront();
+    });
+  }
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -193,6 +202,7 @@ function MapView({
       if (!cancelled) {
         setLayerErrors(errors);
         setIsLoading(false);
+        applyStackingOrder(layerOrderRef.current);
 
         if (boundaryGeoLayer) {
           const bounds = boundaryGeoLayer.getBounds();
@@ -213,7 +223,13 @@ function MapView({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectPath, layers, selectedLayerIndexes, boundaryLayerIndex, layerColors, layerOpacities]);
+  }, [projectPath, layers, selectedLayerIndexes, boundaryLayerIndex, layerColors]);
+
+  useEffect(() => {
+    layerOrderRef.current = layerOrder;
+    applyStackingOrder(layerOrder);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layerOrder]);
 
   useEffect(() => {
     const map = mapRef.current;

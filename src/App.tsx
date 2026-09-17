@@ -25,6 +25,7 @@ function App() {
   const [boundaryLayerIndex, setBoundaryLayerIndex] = useState<number | null>(null);
   const [layerColors, setLayerColors] = useState<Record<number, string>>({});
   const [layerOpacities, setLayerOpacities] = useState<Record<number, number>>({});
+  const [layerOrder, setLayerOrder] = useState<number[]>([]);
   const [activeLayerIndex, setActiveLayerIndex] = useState<number | null>(null);
 
   const [config, setConfig] = useState<WebGisConfig>({
@@ -36,6 +37,7 @@ function App() {
   function handleLayersLoaded(newLayers: LayerInfo[]) {
     setLayers(newLayers);
     setLayerColors({});
+    setLayerOrder(newLayers.map((_, i) => i));
     setActiveLayerIndex(null);
   }
 
@@ -92,10 +94,12 @@ function App() {
                   config={config}
                   layerColors={layerColors}
                   layerOpacities={layerOpacities}
+                  layerOrder={layerOrder}
                   activeLayerIndex={activeLayerIndex}
                   onFocusLayer={setActiveLayerIndex}
                 />
                 <ProjectPanel
+                  projectPath={projectPath}
                   layers={layers}
                   hasProject={projectPath !== null}
                   selectedLayerIndexes={selectedLayerIndexes}
@@ -106,6 +110,8 @@ function App() {
                   onLayerColorChange={handleLayerColorChange}
                   layerOpacities={layerOpacities}
                   onLayerOpacityChange={handleLayerOpacityChange}
+                  layerOrder={layerOrder}
+                  onLayerOrderChange={setLayerOrder}
                   activeLayerIndex={activeLayerIndex}
                   onFocusLayer={setActiveLayerIndex}
                 />
