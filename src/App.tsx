@@ -25,6 +25,7 @@ function App() {
   const [boundaryLayerIndex, setBoundaryLayerIndex] = useState<number | null>(null);
   const [layerColors, setLayerColors] = useState<Record<number, string>>({});
   const [layerCategoryColors, setLayerCategoryColors] = useState<Record<number, Record<string, string>>>({});
+  const [layerAttributeTableEnabled, setLayerAttributeTableEnabled] = useState<Record<number, boolean>>({});
   const [layerOpacities, setLayerOpacities] = useState<Record<number, number>>({});
   const [layerOrder, setLayerOrder] = useState<number[]>([]);
   const [activeLayerIndex, setActiveLayerIndex] = useState<number | null>(null);
@@ -54,6 +55,7 @@ function App() {
     });
     setLayerColors(initialColors);
     setLayerCategoryColors(initialCategoryColors);
+    setLayerAttributeTableEnabled({});
 
     setLayerOrder(newLayers.map((_, i) => i));
     setActiveLayerIndex(null);
@@ -68,6 +70,10 @@ function App() {
       ...prev,
       [index]: { ...(prev[index] ?? {}), [categoryValue]: color },
     }));
+  }
+
+  function handleAttributeTableToggle(index: number, enabled: boolean) {
+    setLayerAttributeTableEnabled((prev) => ({ ...prev, [index]: enabled }));
   }
 
   function handleLayerOpacityChange(index: number, opacity: number) {

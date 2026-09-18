@@ -652,6 +652,7 @@ struct ExportLayerInput {
     color: String,
     opacity: f64,
     is_boundary: bool,
+    show_attribute_table: bool,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -775,6 +776,7 @@ fn export_web_gis(
             "color": layer.color,
             "opacity": layer.opacity,
             "isBoundary": layer.is_boundary,
+            "showAttributeTable": layer.show_attribute_table,
         }));
     }
 
