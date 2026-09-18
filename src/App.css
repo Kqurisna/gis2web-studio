@@ -1288,3 +1288,116 @@ button {
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
+
+/* ---------- Feature Info Card: column picker ---------- */
+
+.feature-info-card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.feature-info-card-icon-btn {
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.feature-info-card-icon-btn:hover {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+}
+
+.feature-info-card-column-picker {
+  position: relative;
+}
+
+.feature-info-card-column-popover {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 1150;
+  width: 220px;
+  max-height: 260px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.feature-info-card-column-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.feature-info-card-column-reset {
+  background: transparent;
+  border: none;
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  padding: 0;
+}
+
+.feature-info-card-column-reset:hover {
+  color: var(--color-primary-hover);
+}
+
+.feature-info-card-column-list {
+  overflow-y: auto;
+  padding: 0.3rem 0.4rem;
+}
+
+.feature-info-card-column-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.4rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.feature-info-card-column-item:hover {
+  background-color: var(--color-surface-alt);
+}
+
+.feature-info-card-column-item input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.feature-info-card-column-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -63,6 +63,18 @@ function App() {
     { layerIndex: number; featureIndex: number } | null
   >(null);
   const [attributeTableCollapsed, setAttributeTableCollapsed] = useState(true);
+  const [layerVisibleFields, setLayerVisibleFields] = useState<Record<number, string[]>>({});
+
+  function handleVisibleFieldsChange(layerIndex: number, fields: string[] | null) {
+    setLayerVisibleFields((prev) => {
+      if (fields === null) {
+        const next = { ...prev };
+        delete next[layerIndex];
+        return next;
+      }
+      return { ...prev, [layerIndex]: fields };
+    });
+  }
 
   const [config, setConfig] = useState<WebGisConfig>({
     basemap: "osm",
@@ -186,6 +198,8 @@ function App() {
                   activeFeature={activeFeature}
                   onClose={() => setActiveFeature(null)}
                   onOpenFullTable={() => setAttributeTableCollapsed(false)}
+                  visibleFields={layerVisibleFields}
+                  onVisibleFieldsChange={handleVisibleFieldsChange}
                 />
                 <AttributeTablePanel
                   projectPath={projectPath}

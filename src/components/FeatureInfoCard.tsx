@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { parseGeojsonForAttributeTable, type GeojsonFeatureLike } from "../lib/geojsonFields";
 import { fetchLayerGeojson, getCachedGeojson } from "../lib/layerGeojsonCache";
 import type { LayerInfo } from "./ProjectPanel";
@@ -9,6 +9,8 @@ interface FeatureInfoCardProps {
   activeFeature: { layerIndex: number; featureIndex: number } | null;
   onClose: () => void;
   onOpenFullTable: () => void;
+  visibleFields: Record<number, string[]>;
+  onVisibleFieldsChange: (layerIndex: number, fields: string[] | null) => void;
 }
 
 function FeatureInfoCard({
@@ -17,9 +19,13 @@ function FeatureInfoCard({
   activeFeature,
   onClose,
   onOpenFullTable,
+  visibleFields,
+  onVisibleFieldsChange,
 }: FeatureInfoCardProps) {
   const layer = activeFeature ? layers[activeFeature.layerIndex] : undefined;
   const [fetchedText, setFetchedText] = useState<string | null>(null);
+  const [columnPickerOpen, setColumnPickerOpen] = useState(false);
+  const columnPickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setFetchedText(null);
@@ -45,16 +51,58 @@ function FeatureInfoCard({
     };
   }, [projectPath, layer]);
 
+  useEffect(() => {
+    setColumnPickerOpen(false);
+  }, [activeFeature?.layerIndex, activeFeature?.featureIndex]);
+
+  useEffect(() => {
+    if (!columnPickerOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (columnPickerRef.current && !columnPickerRef.current.contains(e.target as Node)) {
+        setColumnPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [columnPickerOpen]);
+
   const feature = useMemo<GeojsonFeatureLike | null>(() => {
     if (!activeFeature || !fetchedText) return null;
     const parsed = parseGeojsonForAttributeTable(fetchedText);
     return parsed.features[activeFeature.featureIndex] ?? null;
   }, [activeFeature, fetchedText]);
 
+  const allFields = useMemo<string[]>(() => {
+    if (!fetchedText) return [];
+    return parseGeojsonForAttributeTable(fetchedText).fields;
+  }, [fetchedText]);
+
   if (!activeFeature || !layer || !feature) return null;
 
   const properties = feature.properties ?? {};
-  const entries = Object.entries(properties);
+  const layerIndex = activeFeature.layerIndex;
+  const selectedFields = visibleFields[layerIndex];
+  const activeFields = selectedFields ?? allFields;
+
+  const entries = activeFields
+    .filter((field) => Object.prototype.hasOwnProperty.call(properties, field))
+    .map((field) => [field, properties[field]] as [string, unknown]);
+
+  function toggleField(field: string) {
+    const current = selectedFields ?? allFields;
+    const next = current.includes(field)
+      ? current.filter((f) => f !== field)
+      : [...allFields.filter((f) => current.includes(f) || f === field)];
+    if (next.length === allFields.length) {
+      onVisibleFieldsChange(layerIndex, null);
+    } else {
+      onVisibleFieldsChange(layerIndex, next);
+    }
+  }
+
+  function showAllFields() {
+    onVisibleFieldsChange(layerIndex, null);
+  }
 
   return (
     <div className="feature-info-card">
@@ -63,19 +111,64 @@ function FeatureInfoCard({
           <span className="feature-info-card-title">Feature Information</span>
           <span className="feature-info-card-subtitle">{layer.name}</span>
         </div>
-        <button
-          type="button"
-          className="feature-info-card-close"
-          onClick={onClose}
-          title="Tutup"
-        >
-          {"\u2715"}
-        </button>
+        <div className="feature-info-card-header-actions">
+          {allFields.length > 0 && (
+            <div className="feature-info-card-column-picker" ref={columnPickerRef}>
+              <button
+                type="button"
+                className="feature-info-card-icon-btn"
+                onClick={() => setColumnPickerOpen((v) => !v)}
+                title="Pilih kolom yang ditampilkan"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <path d="M9 4v16M15 4v16" />
+                </svg>
+              </button>
+              {columnPickerOpen && (
+                <div className="feature-info-card-column-popover">
+                  <div className="feature-info-card-column-popover-header">
+                    <span>Pilih kolom</span>
+                    <button
+                      type="button"
+                      className="feature-info-card-column-reset"
+                      onClick={showAllFields}
+                    >
+                      Tampilkan semua
+                    </button>
+                  </div>
+                  <div className="feature-info-card-column-list">
+                    {allFields.map((field) => (
+                      <label key={field} className="feature-info-card-column-item">
+                        <input
+                          type="checkbox"
+                          checked={activeFields.includes(field)}
+                          onChange={() => toggleField(field)}
+                        />
+                        <span>{field}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <button
+            type="button"
+            className="feature-info-card-close"
+            onClick={onClose}
+            title="Tutup"
+          >
+            {"\u2715"}
+          </button>
+        </div>
       </div>
 
       {entries.length === 0 ? (
         <div className="feature-info-card-empty">
-          Tidak ada data atribut pada feature ini.
+          {allFields.length === 0
+            ? "Tidak ada data atribut pada feature ini."
+            : "Tidak ada kolom yang dipilih untuk ditampilkan."}
         </div>
       ) : (
         <div className="feature-info-card-body">
