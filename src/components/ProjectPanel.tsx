@@ -5,6 +5,7 @@ export interface LayerInfo {
   name: string;
   geometry_type: "Point" | "Line" | "Polygon" | "NoGeometry" | "Unknown";
   datasource: string;
+  color: string | null;
 }
 
 interface ProjectPanelProps {

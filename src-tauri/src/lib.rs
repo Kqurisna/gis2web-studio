@@ -14,6 +14,18 @@ struct LayerInfo {
     name: String,
     geometry_type: String,
     datasource: String,
+    color: Option<String>,
+}
+
+fn rgba_string_to_hex(value: &str) -> Option<String> {
+    let parts: Vec<&str> = value.split(',').collect();
+    if parts.len() < 3 {
+        return None;
+    }
+    let r: u8 = parts[0].trim().parse().ok()?;
+    let g: u8 = parts[1].trim().parse().ok()?;
+    let b: u8 = parts[2].trim().parse().ok()?;
+    Some(format!("#{:02x}{:02x}{:02x}", r, g, b))
 }
 
 #[tauri::command]
@@ -85,9 +97,12 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
     let mut in_maplayer = false;
     let mut in_layername = false;
     let mut in_datasource = false;
+    let mut in_renderer = false;
+    let mut color_found = false;
     let mut current_geometry = "Unknown".to_string();
     let mut current_name: Option<String> = None;
     let mut current_datasource = String::new();
+    let mut current_color: Option<String> = None;
 
     loop {
         match reader.read_event_into(&mut buf) {
@@ -96,6 +111,8 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                 current_geometry = "Unknown".to_string();
                 current_name = None;
                 current_datasource = String::new();
+                current_color = None;
+                color_found = false;
 
                 for attr_result in e.attributes() {
                     if let Ok(attr) = attr_result {
@@ -112,6 +129,37 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
             }
             Ok(Event::Start(e)) if in_maplayer && e.name().as_ref() == b"datasource" => {
                 in_datasource = true;
+            }
+            Ok(Event::Start(e)) if in_maplayer && e.name().as_ref() == b"renderer-v2" => {
+                in_renderer = true;
+            }
+            Ok(Event::End(e)) if e.name().as_ref() == b"renderer-v2" => {
+                in_renderer = false;
+            }
+            Ok(Event::Empty(e)) if in_renderer && !color_found && e.name().as_ref() == b"prop" => {
+                let mut prop_key: Option<String> = None;
+                let mut prop_val: Option<String> = None;
+                for attr_result in e.attributes() {
+                    if let Ok(attr) = attr_result {
+                        if attr.key.as_ref() == b"k" {
+                            if let Ok(v) = attr.unescape_value() {
+                                prop_key = Some(v.to_string());
+                            }
+                        } else if attr.key.as_ref() == b"v" {
+                            if let Ok(v) = attr.unescape_value() {
+                                prop_val = Some(v.to_string());
+                            }
+                        }
+                    }
+                }
+                if prop_key.as_deref() == Some("color") {
+                    if let Some(v) = prop_val {
+                        if let Some(hex) = rgba_string_to_hex(&v) {
+                            current_color = Some(hex);
+                            color_found = true;
+                        }
+                    }
+                }
             }
             Ok(Event::Text(e)) if in_layername => {
                 let text = e
@@ -141,6 +189,7 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                         name,
                         geometry_type: current_geometry.clone(),
                         datasource: current_datasource.clone(),
+                        color: current_color.take(),
                     });
                 }
                 in_maplayer = false;

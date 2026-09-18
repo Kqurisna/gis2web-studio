@@ -36,7 +36,15 @@ function App() {
 
   function handleLayersLoaded(newLayers: LayerInfo[]) {
     setLayers(newLayers);
-    setLayerColors({});
+
+    const initialColors: Record<number, string> = {};
+    newLayers.forEach((layer, index) => {
+      if (layer.color) {
+        initialColors[index] = layer.color;
+      }
+    });
+    setLayerColors(initialColors);
+
     setLayerOrder(newLayers.map((_, i) => i));
     setActiveLayerIndex(null);
   }
