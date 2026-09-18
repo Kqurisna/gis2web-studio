@@ -98,6 +98,8 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
     let mut in_layername = false;
     let mut in_datasource = false;
     let mut in_renderer = false;
+    let mut renderer_type: Option<String> = None;
+    let mut in_symbol_sublayer = false;
     let mut color_found = false;
     let mut current_geometry = "Unknown".to_string();
     let mut current_name: Option<String> = None;
@@ -113,6 +115,8 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                 current_datasource = String::new();
                 current_color = None;
                 color_found = false;
+                renderer_type = None;
+                in_symbol_sublayer = false;
 
                 for attr_result in e.attributes() {
                     if let Ok(attr) = attr_result {
@@ -132,10 +136,22 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
             }
             Ok(Event::Start(e)) if in_maplayer && e.name().as_ref() == b"renderer-v2" => {
                 in_renderer = true;
+                renderer_type = None;
+                for attr_result in e.attributes() {
+                    if let Ok(attr) = attr_result {
+                        if attr.key.as_ref() == b"type" {
+                            if let Ok(v) = attr.unescape_value() {
+                                renderer_type = Some(v.to_string());
+                            }
+                        }
+                    }
+                }
             }
             Ok(Event::End(e)) if e.name().as_ref() == b"renderer-v2" => {
                 in_renderer = false;
+                in_symbol_sublayer = false;
             }
+            // Format QGIS lama (<=2.x): <prop k="color" v="r,g,b,a"/>
             Ok(Event::Empty(e)) if in_renderer && !color_found && e.name().as_ref() == b"prop" => {
                 let mut prop_key: Option<String> = None;
                 let mut prop_val: Option<String> = None;
@@ -154,6 +170,47 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                 }
                 if prop_key.as_deref() == Some("color") {
                     if let Some(v) = prop_val {
+                        if let Some(hex) = rgba_string_to_hex(&v) {
+                            current_color = Some(hex);
+                            color_found = true;
+                        }
+                    }
+                }
+            }
+            // Format QGIS modern (>=3.x), khusus singleSymbol:
+            // <layer class="SimpleFill"><Option type="Map">
+            //   <Option type="QString" name="color" value="r,g,b,a,..."/>
+            Ok(Event::Start(e)) | Ok(Event::Empty(e))
+                if in_renderer
+                    && !color_found
+                    && renderer_type.as_deref() == Some("singleSymbol")
+                    && e.name().as_ref() == b"layer" =>
+            {
+                in_symbol_sublayer = true;
+            }
+            Ok(Event::End(e)) if e.name().as_ref() == b"layer" => {
+                in_symbol_sublayer = false;
+            }
+            Ok(Event::Empty(e))
+                if in_symbol_sublayer && !color_found && e.name().as_ref() == b"Option" =>
+            {
+                let mut opt_name: Option<String> = None;
+                let mut opt_val: Option<String> = None;
+                for attr_result in e.attributes() {
+                    if let Ok(attr) = attr_result {
+                        if attr.key.as_ref() == b"name" {
+                            if let Ok(v) = attr.unescape_value() {
+                                opt_name = Some(v.to_string());
+                            }
+                        } else if attr.key.as_ref() == b"value" {
+                            if let Ok(v) = attr.unescape_value() {
+                                opt_val = Some(v.to_string());
+                            }
+                        }
+                    }
+                }
+                if opt_name.as_deref() == Some("color") {
+                    if let Some(v) = opt_val {
                         if let Some(hex) = rgba_string_to_hex(&v) {
                             current_color = Some(hex);
                             color_found = true;
