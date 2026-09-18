@@ -19,6 +19,7 @@ interface MapViewProps {
   onFocusLayer: (index: number) => void;
   activeFeature: { layerIndex: number; featureIndex: number } | null;
   onFocusFeature: (layerIndex: number, featureIndex: number) => void;
+  visibleFields: Record<number, string[]>;
 }
 
 interface BasemapTileDef {
@@ -98,6 +99,7 @@ function MapView({
   onFocusLayer,
   activeFeature,
   onFocusFeature,
+  visibleFields,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -108,6 +110,11 @@ function MapView({
   const featureLayerRefsRef = useRef<Map<string, L.Layer>>(new Map());
   const layerOrderRef = useRef<number[]>(layerOrder);
   const prevBoundaryLayerIndexRef = useRef<number | null>(null);
+  const visibleFieldsRef = useRef<Record<number, string[]>>(visibleFields);
+
+  useEffect(() => {
+    visibleFieldsRef.current = visibleFields;
+  }, [visibleFields]);
 
   const [layerErrors, setLayerErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -227,18 +234,28 @@ function MapView({
               const properties = feature.properties as Record<string, unknown> | null;
               if (!properties || Object.keys(properties).length === 0) return;
 
-              const rows = Object.entries(properties)
-                .map(
-                  ([key, value]) =>
-                    `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(
-                      value === null || value === undefined ? "-" : String(value)
-                    )}</td></tr>`
-                )
-                .join("");
+              layerInstance.bindPopup(() => {
+                const selectedFields = visibleFieldsRef.current[index];
+                const allKeys = Object.keys(properties);
+                const fieldsToShow = selectedFields
+                  ? selectedFields.filter((f) => allKeys.includes(f))
+                  : allKeys;
 
-              layerInstance.bindPopup(
-                `<div class="feature-popup"><table class="feature-popup-table">${rows}</table></div>`
-              );
+                if (fieldsToShow.length === 0) {
+                  return `<div class="feature-popup"><p class="feature-popup-empty">Tidak ada kolom yang dipilih untuk ditampilkan.</p></div>`;
+                }
+
+                const rows = fieldsToShow
+                  .map((key) => {
+                    const value = properties[key];
+                    return `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(
+                      value === null || value === undefined ? "-" : String(value)
+                    )}</td></tr>`;
+                  })
+                  .join("");
+
+                return `<div class="feature-popup"><table class="feature-popup-table">${rows}</table></div>`;
+              });
             },
           });
 
@@ -341,6 +358,23 @@ function MapView({
     anyLayer.openPopup();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFeature]);
+
+  useEffect(() => {
+    if (!activeFeature) return;
+
+    const key = `${activeFeature.layerIndex}:${activeFeature.featureIndex}`;
+    const layerInstance = featureLayerRefsRef.current.get(key);
+    if (!layerInstance) return;
+
+    const anyLayer = layerInstance as L.Layer & {
+      getPopup?: () => L.Popup | undefined;
+      isPopupOpen?: () => boolean;
+    };
+
+    if (typeof anyLayer.isPopupOpen === "function" && anyLayer.isPopupOpen()) {
+      anyLayer.getPopup?.()?.update();
+    }
+  }, [visibleFields, activeFeature]);
 
   return (
     <div className="map-view-wrapper">

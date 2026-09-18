@@ -1401,3 +1401,10 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.feature-popup-empty {
+  margin: 0;
+  padding: 0.4rem 0.2rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}

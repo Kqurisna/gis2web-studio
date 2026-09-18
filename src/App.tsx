@@ -191,6 +191,7 @@ function App() {
                   onFocusLayer={setActiveLayerIndex}
                   activeFeature={activeFeature}
                   onFocusFeature={handleFocusFeature}
+                  visibleFields={layerVisibleFields}
                 />
                 <FeatureInfoCard
                   projectPath={projectPath}
