@@ -107,6 +107,7 @@ function MapView({
   const layerStyleRef = useRef<Map<number, L.PathOptions | L.StyleFunction>>(new Map());
   const featureLayerRefsRef = useRef<Map<string, L.Layer>>(new Map());
   const layerOrderRef = useRef<number[]>(layerOrder);
+  const prevBoundaryLayerIndexRef = useRef<number | null>(null);
 
   const [layerErrors, setLayerErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -275,7 +276,7 @@ function MapView({
         setIsLoading(false);
         applyStackingOrder(layerOrderRef.current);
 
-        if (boundaryGeoLayer) {
+        if (boundaryGeoLayer && boundaryLayerIndex !== prevBoundaryLayerIndexRef.current) {
           const bounds = boundaryGeoLayer.getBounds();
           if (bounds.isValid()) {
             activeMap.flyToBounds(bounds, {
@@ -285,6 +286,7 @@ function MapView({
             });
           }
         }
+        prevBoundaryLayerIndexRef.current = boundaryLayerIndex;
       }
     }
 
@@ -308,16 +310,6 @@ function MapView({
 
     const geoLayer = layerRefsRef.current.get(activeLayerIndex);
     if (!geoLayer) return;
-
-    const bounds = geoLayer.getBounds();
-    if (bounds.isValid()) {
-      map.flyToBounds(bounds, {
-        maxZoom: config.maxZoom,
-        padding: [40, 40],
-        duration: 1.6,
-        easeLinearity: 0.08,
-      });
-    }
 
     geoLayer.setStyle({ weight: 5 });
 
@@ -345,23 +337,6 @@ function MapView({
       getLatLng?: () => L.LatLng;
       openPopup: () => L.Layer;
     };
-
-    if (typeof anyLayer.getBounds === "function") {
-      const bounds = anyLayer.getBounds();
-      if (bounds.isValid()) {
-        map.flyToBounds(bounds, {
-          maxZoom: config.maxZoom,
-          padding: [60, 60],
-          duration: 1.2,
-          easeLinearity: 0.08,
-        });
-      }
-    } else if (typeof anyLayer.getLatLng === "function") {
-      map.flyTo(anyLayer.getLatLng(), Math.max(map.getZoom(), 14), {
-        duration: 1.2,
-        easeLinearity: 0.08,
-      });
-    }
 
     anyLayer.openPopup();
     // eslint-disable-next-line react-hooks/exhaustive-deps
