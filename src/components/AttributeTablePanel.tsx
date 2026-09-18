@@ -28,14 +28,37 @@ function AttributeTablePanel({
   const [parsed, setParsed] = useState<ParsedGeojsonLayer>({ fields: [], features: [] });
   const [loading, setLoading] = useState(false);
 
-  const enabledKey = enabledLayerIndexes.join(",");
+  // Saat panel dibuka (mis. lewat tombol "Lihat tabel penuh" pada Feature
+  // Info Card) dan ada feature aktif, pastikan layer milik feature tersebut
+  // tetap muncul di daftar pilihan meskipun belum di-toggle "Tampilkan".
+  const effectiveLayerIndexes = useMemo(() => {
+    if (
+      !collapsed &&
+      activeFeature &&
+      !enabledLayerIndexes.includes(activeFeature.layerIndex)
+    ) {
+      return [...enabledLayerIndexes, activeFeature.layerIndex];
+    }
+    return enabledLayerIndexes;
+  }, [enabledLayerIndexes, activeFeature, collapsed]);
+
+  const enabledKey = effectiveLayerIndexes.join(",");
 
   useEffect(() => {
-    if (selectedLayerIndex === null || !enabledLayerIndexes.includes(selectedLayerIndex)) {
-      setSelectedLayerIndex(enabledLayerIndexes[0] ?? null);
+    if (selectedLayerIndex === null || !effectiveLayerIndexes.includes(selectedLayerIndex)) {
+      setSelectedLayerIndex(effectiveLayerIndexes[0] ?? null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabledKey]);
+
+  // Saat panel dibuka, langsung fokuskan pilihan layer ke layer milik
+  // feature yang sedang aktif (mis. dari "Lihat tabel penuh").
+  useEffect(() => {
+    if (!collapsed && activeFeature && effectiveLayerIndexes.includes(activeFeature.layerIndex)) {
+      setSelectedLayerIndex(activeFeature.layerIndex);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collapsed]);
 
   useEffect(() => {
     if (!projectPath || selectedLayerIndex === null) {
@@ -74,11 +97,11 @@ function AttributeTablePanel({
   }, [projectPath, selectedLayerIndex, layers]);
 
   const enabledLayerOptions = useMemo(
-    () => enabledLayerIndexes.map((idx) => ({ idx, name: layers[idx]?.name ?? `Layer ${idx}` })),
-    [enabledLayerIndexes, layers]
+    () => effectiveLayerIndexes.map((idx) => ({ idx, name: layers[idx]?.name ?? `Layer ${idx}` })),
+    [effectiveLayerIndexes, layers]
   );
 
-  if (enabledLayerIndexes.length === 0) return null;
+  if (effectiveLayerIndexes.length === 0) return null;
 
   return (
     <div className="attribute-table-panel">
