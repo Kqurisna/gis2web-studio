@@ -125,7 +125,14 @@ function ProjectPanel({
       ) : (
         <div className="layer-overlay-header">
           <span className="layer-overlay-title">
-            <span className="layer-overlay-title-icon">{"\uD83D\uDDFA\uFE0F"}</span>
+            <span className="layer-overlay-title-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1.2" />
+                <rect x="14" y="3" width="7" height="7" rx="1.2" />
+                <rect x="3" y="14" width="7" height="7" rx="1.2" />
+                <rect x="14" y="14" width="7" height="7" rx="1.2" />
+              </svg>
+            </span>
             Layers
           </span>
           <button
@@ -144,7 +151,11 @@ function ProjectPanel({
           <div className="project-panel">
             {!hasProject && (
               <div className="project-empty-state">
-                <div className="project-empty-icon">{"\uD83D\uDCC1"}</div>
+                <div className="project-empty-icon">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                  </svg>
+                </div>
                 <p className="project-empty-title">Belum ada project</p>
                 <p className="project-empty-text">
                   Klik "Import Project" di toolbar atas untuk mulai memilih

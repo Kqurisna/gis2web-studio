@@ -8,14 +8,43 @@ import ConfigurationPanel, {
 } from "./components/ConfigurationPanel";
 import ExportPanel from "./components/ExportPanel";
 import AttributeTablePanel from "./components/AttributeTablePanel";
+import FeatureInfoCard from "./components/FeatureInfoCard";
 
 type MenuKey = "project" | "configuration" | "export";
 
-const MENU_ITEMS: { key: MenuKey; label: string; icon: string }[] = [
-  { key: "project", label: "Project", icon: "\uD83D\uDDFA\uFE0F" },
-  { key: "configuration", label: "Configuration", icon: "\u2699\uFE0F" },
-  { key: "export", label: "Export", icon: "\u2B07\uFE0F" },
+type MenuIconKey = "project" | "configuration" | "export";
+
+const MENU_ITEMS: { key: MenuKey; label: string; icon: MenuIconKey }[] = [
+  { key: "project", label: "Project", icon: "project" },
+  { key: "configuration", label: "Configuration", icon: "configuration" },
+  { key: "export", label: "Export", icon: "export" },
 ];
+
+function MenuIcon({ icon }: { icon: MenuIconKey }) {
+  if (icon === "project") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3V7z" />
+        <path d="M9 4v13M15 7v13" />
+      </svg>
+    );
+  }
+  if (icon === "configuration") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M4 20h16" />
+    </svg>
+  );
+}
 
 function App() {
   const [activeMenu, setActiveMenu] = useState<MenuKey>("project");
@@ -33,6 +62,7 @@ function App() {
   const [activeFeature, setActiveFeature] = useState<
     { layerIndex: number; featureIndex: number } | null
   >(null);
+  const [attributeTableCollapsed, setAttributeTableCollapsed] = useState(true);
 
   const [config, setConfig] = useState<WebGisConfig>({
     basemap: "osm",
@@ -116,7 +146,9 @@ function App() {
               }
               onClick={() => setActiveMenu(item.key)}
             >
-              <span className="sidebar-item-icon">{item.icon}</span>
+              <span className="sidebar-item-icon">
+                <MenuIcon icon={item.icon} />
+              </span>
               <span className="sidebar-item-label">{item.label}</span>
             </button>
           ))}
@@ -148,12 +180,21 @@ function App() {
                   activeFeature={activeFeature}
                   onFocusFeature={handleFocusFeature}
                 />
+                <FeatureInfoCard
+                  projectPath={projectPath}
+                  layers={layers}
+                  activeFeature={activeFeature}
+                  onClose={() => setActiveFeature(null)}
+                  onOpenFullTable={() => setAttributeTableCollapsed(false)}
+                />
                 <AttributeTablePanel
                   projectPath={projectPath}
                   layers={layers}
                   enabledLayerIndexes={enabledAttributeTableLayerIndexes}
                   activeFeature={activeFeature}
                   onFocusFeature={handleFocusFeature}
+                  collapsed={attributeTableCollapsed}
+                  onCollapsedChange={setAttributeTableCollapsed}
                 />
                 <ProjectPanel
                   projectPath={projectPath}

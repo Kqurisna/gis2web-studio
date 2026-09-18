@@ -9,6 +9,8 @@ interface AttributeTablePanelProps {
   enabledLayerIndexes: number[];
   activeFeature: { layerIndex: number; featureIndex: number } | null;
   onFocusFeature: (layerIndex: number, featureIndex: number) => void;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
 }
 
 function AttributeTablePanel({
@@ -17,8 +19,9 @@ function AttributeTablePanel({
   enabledLayerIndexes,
   activeFeature,
   onFocusFeature,
+  collapsed,
+  onCollapsedChange,
 }: AttributeTablePanelProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const [selectedLayerIndex, setSelectedLayerIndex] = useState<number | null>(
     enabledLayerIndexes[0] ?? null
   );
@@ -81,7 +84,23 @@ function AttributeTablePanel({
     <div className="attribute-table-panel">
       <div className="attribute-table-header">
         <div className="attribute-table-header-left">
-          <span className="attribute-table-title">{"\uD83D\uDCCB"} Attribute Table</span>
+          <span className="attribute-table-title">
+            <svg
+              className="attribute-table-title-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M3 9h18M8 4v16" />
+            </svg>
+            Attribute Table
+          </span>
           {enabledLayerOptions.length > 1 && (
             <select
               className="attribute-table-layer-select"
@@ -105,7 +124,7 @@ function AttributeTablePanel({
         <button
           type="button"
           className="attribute-table-toggle-btn"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() => onCollapsedChange(!collapsed)}
           title={collapsed ? "Buka Attribute Table" : "Tutup Attribute Table"}
         >
           {collapsed ? "\u25B2" : "\u25BC"}
