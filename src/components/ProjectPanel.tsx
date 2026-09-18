@@ -30,6 +30,8 @@ interface ProjectPanelProps {
   onLayerCategoryColorChange: (index: number, categoryValue: string, color: string) => void;
   layerOpacities: Record<number, number>;
   onLayerOpacityChange: (index: number, opacity: number) => void;
+  layerAttributeTableEnabled: Record<number, boolean>;
+  onAttributeTableToggle: (index: number, enabled: boolean) => void;
   layerOrder: number[];
   onLayerOrderChange: (order: number[]) => void;
   activeLayerIndex: number | null;
@@ -52,6 +54,8 @@ function ProjectPanel({
   onLayerCategoryColorChange,
   layerOpacities,
   onLayerOpacityChange,
+  layerAttributeTableEnabled,
+  onAttributeTableToggle,
   layerOrder,
   onLayerOrderChange,
   activeLayerIndex,
@@ -180,6 +184,7 @@ function ProjectPanel({
                           <th>Tipe Geometri</th>
                           <th>Warna</th>
                           <th>Opacity</th>
+                          <th>Attribute Table</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -266,6 +271,19 @@ function ProjectPanel({
                                   {Math.round(opacity * 100)}%
                                 </span>
                               </td>
+                              <td onClick={(e) => e.stopPropagation()}>
+                                <label className="attribute-table-toggle">
+                                  <input
+                                    type="checkbox"
+                                    checked={layerAttributeTableEnabled[index] ?? false}
+                                    onChange={(e) =>
+                                      onAttributeTableToggle(index, e.target.checked)
+                                    }
+                                    title="Tampilkan Attribute Table untuk layer ini"
+                                  />
+                                  <span className="attribute-table-toggle-label">Tampilkan</span>
+                                </label>
+                              </td>
                             </tr>
                           );
                         })}
@@ -280,7 +298,7 @@ function ProjectPanel({
                           const categoryColorMap = layerCategoryColors[index] ?? {};
                           return (
                             <tr key={`categories-${index}`} className="category-subrow">
-                              <td colSpan={6} onClick={(e) => e.stopPropagation()}>
+                              <td colSpan={7} onClick={(e) => e.stopPropagation()}>
                                 <div className="category-subrow-inner">
                                   <span className="category-subrow-title">
                                     Warna per kategori{layer.category_field ? ` (${layer.category_field})` : ""}:

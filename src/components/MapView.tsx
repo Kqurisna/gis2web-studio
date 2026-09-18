@@ -17,6 +17,8 @@ interface MapViewProps {
   layerOrder: number[];
   activeLayerIndex: number | null;
   onFocusLayer: (index: number) => void;
+  activeFeature: { layerIndex: number; featureIndex: number } | null;
+  onFocusFeature: (layerIndex: number, featureIndex: number) => void;
 }
 
 interface BasemapTileDef {
@@ -73,6 +75,15 @@ function resolveFeatureColor(
   return fallbackColor;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function MapView({
   projectPath,
   layers,
@@ -85,6 +96,8 @@ function MapView({
   layerOrder,
   activeLayerIndex,
   onFocusLayer,
+  activeFeature,
+  onFocusFeature,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -92,6 +105,7 @@ function MapView({
   const dataLayerGroupRef = useRef<L.LayerGroup | null>(null);
   const layerRefsRef = useRef<Map<number, L.GeoJSON>>(new Map());
   const layerStyleRef = useRef<Map<number, L.PathOptions | L.StyleFunction>>(new Map());
+  const featureLayerRefsRef = useRef<Map<string, L.Layer>>(new Map());
   const layerOrderRef = useRef<number[]>(layerOrder);
 
   const [layerErrors, setLayerErrors] = useState<string[]>([]);
@@ -157,6 +171,7 @@ function MapView({
       activeGroup.clearLayers();
       layerRefsRef.current.clear();
       layerStyleRef.current.clear();
+      featureLayerRefsRef.current.clear();
 
       const errors: string[] = [];
       let boundaryGeoLayer: L.GeoJSON | null = null;
@@ -200,6 +215,29 @@ function MapView({
                 color: resolvedColor,
                 fillOpacity: layerOpacity,
               });
+            },
+            onEachFeature: (feature, layerInstance) => {
+              const featureIndex = geojsonData.features.indexOf(feature);
+              if (featureIndex !== -1) {
+                featureLayerRefsRef.current.set(`${index}:${featureIndex}`, layerInstance);
+                layerInstance.on("click", () => onFocusFeature(index, featureIndex));
+              }
+
+              const properties = feature.properties as Record<string, unknown> | null;
+              if (!properties || Object.keys(properties).length === 0) return;
+
+              const rows = Object.entries(properties)
+                .map(
+                  ([key, value]) =>
+                    `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(
+                      value === null || value === undefined ? "-" : String(value)
+                    )}</td></tr>`
+                )
+                .join("");
+
+              layerInstance.bindPopup(
+                `<div class="feature-popup"><table class="feature-popup-table">${rows}</table></div>`
+              );
             },
           });
 
@@ -293,6 +331,41 @@ function MapView({
     return () => window.clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLayerIndex]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !activeFeature) return;
+
+    const key = `${activeFeature.layerIndex}:${activeFeature.featureIndex}`;
+    const layerInstance = featureLayerRefsRef.current.get(key);
+    if (!layerInstance) return;
+
+    const anyLayer = layerInstance as L.Layer & {
+      getBounds?: () => L.LatLngBounds;
+      getLatLng?: () => L.LatLng;
+      openPopup: () => L.Layer;
+    };
+
+    if (typeof anyLayer.getBounds === "function") {
+      const bounds = anyLayer.getBounds();
+      if (bounds.isValid()) {
+        map.flyToBounds(bounds, {
+          maxZoom: config.maxZoom,
+          padding: [60, 60],
+          duration: 1.2,
+          easeLinearity: 0.08,
+        });
+      }
+    } else if (typeof anyLayer.getLatLng === "function") {
+      map.flyTo(anyLayer.getLatLng(), Math.max(map.getZoom(), 14), {
+        duration: 1.2,
+        easeLinearity: 0.08,
+      });
+    }
+
+    anyLayer.openPopup();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFeature]);
 
   return (
     <div className="map-view-wrapper">

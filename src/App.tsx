@@ -7,6 +7,7 @@ import ConfigurationPanel, {
   type WebGisConfig,
 } from "./components/ConfigurationPanel";
 import ExportPanel from "./components/ExportPanel";
+import AttributeTablePanel from "./components/AttributeTablePanel";
 
 type MenuKey = "project" | "configuration" | "export";
 
@@ -29,6 +30,9 @@ function App() {
   const [layerOpacities, setLayerOpacities] = useState<Record<number, number>>({});
   const [layerOrder, setLayerOrder] = useState<number[]>([]);
   const [activeLayerIndex, setActiveLayerIndex] = useState<number | null>(null);
+  const [activeFeature, setActiveFeature] = useState<
+    { layerIndex: number; featureIndex: number } | null
+  >(null);
 
   const [config, setConfig] = useState<WebGisConfig>({
     basemap: "osm",
@@ -80,6 +84,18 @@ function App() {
     setLayerOpacities((prev) => ({ ...prev, [index]: opacity }));
   }
 
+  function handleFocusFeature(layerIndex: number, featureIndex: number) {
+    setActiveFeature({ layerIndex, featureIndex });
+  }
+
+  const enabledAttributeTableLayerIndexes = layers
+    .map((_, i) => i)
+    .filter(
+      (i) =>
+        layerAttributeTableEnabled[i] &&
+        (selectedLayerIndexes.includes(i) || boundaryLayerIndex === i)
+    );
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -129,6 +145,15 @@ function App() {
                   layerOrder={layerOrder}
                   activeLayerIndex={activeLayerIndex}
                   onFocusLayer={setActiveLayerIndex}
+                  activeFeature={activeFeature}
+                  onFocusFeature={handleFocusFeature}
+                />
+                <AttributeTablePanel
+                  projectPath={projectPath}
+                  layers={layers}
+                  enabledLayerIndexes={enabledAttributeTableLayerIndexes}
+                  activeFeature={activeFeature}
+                  onFocusFeature={handleFocusFeature}
                 />
                 <ProjectPanel
                   projectPath={projectPath}
@@ -144,6 +169,8 @@ function App() {
                   onLayerCategoryColorChange={handleLayerCategoryColorChange}
                   layerOpacities={layerOpacities}
                   onLayerOpacityChange={handleLayerOpacityChange}
+                  layerAttributeTableEnabled={layerAttributeTableEnabled}
+                  onAttributeTableToggle={handleAttributeTableToggle}
                   layerOrder={layerOrder}
                   onLayerOrderChange={setLayerOrder}
                   activeLayerIndex={activeLayerIndex}
