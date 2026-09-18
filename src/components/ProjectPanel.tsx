@@ -1,11 +1,19 @@
 import { useRef, useState } from "react";
 import LayerPreview from "./LayerPreview";
 
+export interface CategoryInfo {
+  value: string;
+  label: string;
+  color: string;
+}
+
 export interface LayerInfo {
   name: string;
   geometry_type: "Point" | "Line" | "Polygon" | "NoGeometry" | "Unknown";
   datasource: string;
   color: string | null;
+  category_field: string | null;
+  categories: CategoryInfo[] | null;
 }
 
 interface ProjectPanelProps {
@@ -18,6 +26,8 @@ interface ProjectPanelProps {
   onBoundaryLayerIndexChange: (index: number | null) => void;
   layerColors: Record<number, string>;
   onLayerColorChange: (index: number, color: string) => void;
+  layerCategoryColors: Record<number, Record<string, string>>;
+  onLayerCategoryColorChange: (index: number, categoryValue: string, color: string) => void;
   layerOpacities: Record<number, number>;
   onLayerOpacityChange: (index: number, opacity: number) => void;
   layerOrder: number[];
@@ -38,6 +48,8 @@ function ProjectPanel({
   onBoundaryLayerIndexChange,
   layerColors,
   onLayerColorChange,
+  layerCategoryColors,
+  onLayerCategoryColorChange,
   layerOpacities,
   onLayerOpacityChange,
   layerOrder,
@@ -49,6 +61,7 @@ function ProjectPanel({
   const [panelTab, setPanelTab] = useState<PanelTab>("layers");
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [preview, setPreview] = useState<{ index: number; x: number; y: number } | null>(null);
+  const [expandedLayerIndex, setExpandedLayerIndex] = useState<number | null>(null);
   const hoverTimeoutRef = useRef<number | null>(null);
 
   function toggleLayerSelected(index: number) {
@@ -214,12 +227,28 @@ function ProjectPanel({
                                 )}
                               </td>
                               <td onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="color"
-                                  value={color}
-                                  onChange={(e) => onLayerColorChange(index, e.target.value)}
-                                  title="Pilih warna layer"
-                                />
+                                {layer.categories && layer.categories.length > 0 ? (
+                                  <button
+                                    type="button"
+                                    className="category-expand-button"
+                                    onClick={() =>
+                                      setExpandedLayerIndex(
+                                        expandedLayerIndex === index ? null : index
+                                      )
+                                    }
+                                    title="Lihat warna per kategori"
+                                  >
+                                    {layer.categories.length} kategori{" "}
+                                    {expandedLayerIndex === index ? "\u25B2" : "\u25BC"}
+                                  </button>
+                                ) : (
+                                  <input
+                                    type="color"
+                                    value={color}
+                                    onChange={(e) => onLayerColorChange(index, e.target.value)}
+                                    title="Pilih warna layer"
+                                  />
+                                )}
                               </td>
                               <td onClick={(e) => e.stopPropagation()} className="opacity-cell">
                                 <input
@@ -236,6 +265,49 @@ function ProjectPanel({
                                 <span className="opacity-value">
                                   {Math.round(opacity * 100)}%
                                 </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {layers.map((layer, index) => {
+                          if (
+                            expandedLayerIndex !== index ||
+                            !layer.categories ||
+                            layer.categories.length === 0
+                          ) {
+                            return null;
+                          }
+                          const categoryColorMap = layerCategoryColors[index] ?? {};
+                          return (
+                            <tr key={`categories-${index}`} className="category-subrow">
+                              <td colSpan={6} onClick={(e) => e.stopPropagation()}>
+                                <div className="category-subrow-inner">
+                                  <span className="category-subrow-title">
+                                    Warna per kategori{layer.category_field ? ` (${layer.category_field})` : ""}:
+                                  </span>
+                                  <div className="category-list">
+                                    {layer.categories.map((cat) => {
+                                      const catColor = categoryColorMap[cat.value] ?? cat.color;
+                                      return (
+                                        <div className="category-item" key={cat.value}>
+                                          <input
+                                            type="color"
+                                            value={catColor}
+                                            onChange={(e) =>
+                                              onLayerCategoryColorChange(
+                                                index,
+                                                cat.value,
+                                                e.target.value
+                                              )
+                                            }
+                                            title={`Warna untuk ${cat.label}`}
+                                          />
+                                          <span className="category-item-label">{cat.label}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
                               </td>
                             </tr>
                           );

@@ -10,11 +10,20 @@ use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 #[derive(Serialize, Clone, Debug)]
+struct CategoryInfo {
+    value: String,
+    label: String,
+    color: String,
+}
+
+#[derive(Serialize, Clone, Debug)]
 struct LayerInfo {
     name: String,
     geometry_type: String,
     datasource: String,
     color: Option<String>,
+    category_field: Option<String>,
+    categories: Option<Vec<CategoryInfo>>,
 }
 
 fn rgba_string_to_hex(value: &str) -> Option<String> {
@@ -105,6 +114,14 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
     let mut current_name: Option<String> = None;
     let mut current_datasource = String::new();
     let mut current_color: Option<String> = None;
+    let mut current_category_field: Option<String> = None;
+    let mut current_categories: Vec<CategoryInfo> = Vec::new();
+    let mut category_defs: Vec<(String, String)> = Vec::new(); // (symbol_id, value)
+    let mut symbol_colors: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut in_categories = false;
+    let mut in_symbols = false;
+    let mut current_symbol_id: Option<String> = None;
+    let mut in_current_symbol_layer = false;
 
     loop {
         match reader.read_event_into(&mut buf) {
@@ -117,6 +134,14 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                 color_found = false;
                 renderer_type = None;
                 in_symbol_sublayer = false;
+                current_category_field = None;
+                current_categories = Vec::new();
+                category_defs = Vec::new();
+                symbol_colors = std::collections::HashMap::new();
+                in_categories = false;
+                in_symbols = false;
+                current_symbol_id = None;
+                in_current_symbol_layer = false;
 
                 for attr_result in e.attributes() {
                     if let Ok(attr) = attr_result {
@@ -143,6 +168,115 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                             if let Ok(v) = attr.unescape_value() {
                                 renderer_type = Some(v.to_string());
                             }
+                        } else if attr.key.as_ref() == b"attr" {
+                            if let Ok(v) = attr.unescape_value() {
+                                current_category_field = Some(v.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(Event::Start(e))
+                if in_renderer
+                    && renderer_type.as_deref() == Some("categorizedSymbol")
+                    && e.name().as_ref() == b"categories" =>
+            {
+                in_categories = true;
+            }
+            Ok(Event::End(e)) if e.name().as_ref() == b"categories" => {
+                in_categories = false;
+            }
+            Ok(Event::Empty(e)) if in_categories && e.name().as_ref() == b"category" => {
+                let mut cat_value: Option<String> = None;
+                let mut cat_label: Option<String> = None;
+                let mut cat_symbol: Option<String> = None;
+                for attr_result in e.attributes() {
+                    if let Ok(attr) = attr_result {
+                        match attr.key.as_ref() {
+                            b"value" => {
+                                if let Ok(v) = attr.unescape_value() {
+                                    cat_value = Some(v.to_string());
+                                }
+                            }
+                            b"label" => {
+                                if let Ok(v) = attr.unescape_value() {
+                                    cat_label = Some(v.to_string());
+                                }
+                            }
+                            b"symbol" => {
+                                if let Ok(v) = attr.unescape_value() {
+                                    cat_symbol = Some(v.to_string());
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                if let (Some(sym), Some(val)) = (cat_symbol, cat_value) {
+                    let label = cat_label.unwrap_or_else(|| val.clone());
+                    category_defs.push((sym, val));
+                    if let Some(idx) = category_defs.len().checked_sub(1) {
+                        let _ = idx;
+                    }
+                    current_categories.push(CategoryInfo {
+                        value: category_defs.last().unwrap().1.clone(),
+                        label,
+                        color: String::new(),
+                    });
+                }
+            }
+            Ok(Event::Start(e))
+                if in_renderer
+                    && renderer_type.as_deref() == Some("categorizedSymbol")
+                    && e.name().as_ref() == b"symbols" =>
+            {
+                in_symbols = true;
+            }
+            Ok(Event::End(e)) if e.name().as_ref() == b"symbols" => {
+                in_symbols = false;
+            }
+            Ok(Event::Start(e)) if in_symbols && e.name().as_ref() == b"symbol" => {
+                current_symbol_id = None;
+                for attr_result in e.attributes() {
+                    if let Ok(attr) = attr_result {
+                        if attr.key.as_ref() == b"name" {
+                            if let Ok(v) = attr.unescape_value() {
+                                current_symbol_id = Some(v.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(Event::Start(e)) | Ok(Event::Empty(e))
+                if in_symbols && current_symbol_id.is_some() && e.name().as_ref() == b"layer" =>
+            {
+                in_current_symbol_layer = true;
+            }
+            Ok(Event::End(e)) if in_symbols && e.name().as_ref() == b"layer" => {
+                in_current_symbol_layer = false;
+            }
+            Ok(Event::Empty(e))
+                if in_current_symbol_layer && e.name().as_ref() == b"Option" =>
+            {
+                let mut opt_name: Option<String> = None;
+                let mut opt_val: Option<String> = None;
+                for attr_result in e.attributes() {
+                    if let Ok(attr) = attr_result {
+                        if attr.key.as_ref() == b"name" {
+                            if let Ok(v) = attr.unescape_value() {
+                                opt_name = Some(v.to_string());
+                            }
+                        } else if attr.key.as_ref() == b"value" {
+                            if let Ok(v) = attr.unescape_value() {
+                                opt_val = Some(v.to_string());
+                            }
+                        }
+                    }
+                }
+                if opt_name.as_deref() == Some("color") {
+                    if let (Some(sym_id), Some(v)) = (current_symbol_id.clone(), opt_val) {
+                        if let Some(hex) = rgba_string_to_hex(&v) {
+                            symbol_colors.entry(sym_id).or_insert(hex);
                         }
                     }
                 }
@@ -242,11 +376,36 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
             }
             Ok(Event::End(e)) if e.name().as_ref() == b"maplayer" => {
                 if let Some(name) = current_name.take() {
+                    let final_categories = if category_defs.is_empty() {
+                        None
+                    } else {
+                        let mut result = Vec::new();
+                        for (sym_id, val) in &category_defs {
+                            let color = symbol_colors
+                                .get(sym_id)
+                                .cloned()
+                                .unwrap_or_else(|| "#9ca3af".to_string());
+                            let label = if val == "NULL" {
+                                "Lainnya".to_string()
+                            } else {
+                                val.clone()
+                            };
+                            result.push(CategoryInfo {
+                                value: val.clone(),
+                                label,
+                                color,
+                            });
+                        }
+                        Some(result)
+                    };
+
                     layers.push(LayerInfo {
                         name,
                         geometry_type: current_geometry.clone(),
                         datasource: current_datasource.clone(),
                         color: current_color.take(),
+                        category_field: current_category_field.take(),
+                        categories: final_categories,
                     });
                 }
                 in_maplayer = false;

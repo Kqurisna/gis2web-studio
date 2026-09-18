@@ -12,6 +12,7 @@ interface MapViewProps {
   boundaryLayerIndex: number | null;
   config: WebGisConfig;
   layerColors: Record<number, string>;
+  layerCategoryColors: Record<number, Record<string, string>>;
   layerOpacities: Record<number, number>;
   layerOrder: number[];
   activeLayerIndex: number | null;
@@ -51,6 +52,27 @@ function styleForLayer(
     : { color, weight: 1.5, fillOpacity };
 }
 
+function resolveFeatureColor(
+  layer: LayerInfo,
+  categoryColorOverrides: Record<string, string> | undefined,
+  feature: GeoJSON.Feature | undefined,
+  fallbackColor: string
+): string {
+  if (!layer.categories || layer.categories.length === 0 || !layer.category_field) {
+    return fallbackColor;
+  }
+  const rawValue = feature?.properties?.[layer.category_field];
+  const valueKey = rawValue === null || rawValue === undefined ? "NULL" : String(rawValue);
+
+  const override = categoryColorOverrides?.[valueKey];
+  if (override) return override;
+
+  const matched = layer.categories.find((cat) => cat.value === valueKey);
+  if (matched) return matched.color;
+
+  return fallbackColor;
+}
+
 function MapView({
   projectPath,
   layers,
@@ -58,6 +80,7 @@ function MapView({
   boundaryLayerIndex,
   config,
   layerColors,
+  layerCategoryColors,
   layerOpacities,
   layerOrder,
   activeLayerIndex,
@@ -68,7 +91,7 @@ function MapView({
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const dataLayerGroupRef = useRef<L.LayerGroup | null>(null);
   const layerRefsRef = useRef<Map<number, L.GeoJSON>>(new Map());
-  const layerStyleRef = useRef<Map<number, L.PathOptions>>(new Map());
+  const layerStyleRef = useRef<Map<number, L.PathOptions | L.StyleFunction>>(new Map());
   const layerOrderRef = useRef<number[]>(layerOrder);
 
   const [layerErrors, setLayerErrors] = useState<string[]>([]);
@@ -156,16 +179,28 @@ function MapView({
           const isBoundary = index === boundaryLayerIndex;
           const layerColor = layerColors[index] ?? (isBoundary ? "#f97316" : "#2563eb");
           const layerOpacity = layerOpacities[index] ?? 0.35;
-          const style = styleForLayer(layerColor, isBoundary, layerOpacity);
+          const categoryOverrides = layerCategoryColors[index];
+          const hasCategories = !!layer.categories && layer.categories.length > 0;
+
+          const style: L.StyleFunction = (feature) => {
+            const resolvedColor = hasCategories
+              ? resolveFeatureColor(layer, categoryOverrides, feature, layerColor)
+              : layerColor;
+            return styleForLayer(resolvedColor, isBoundary, layerOpacity);
+          };
 
           const geoLayer = L.geoJSON(geojsonData, {
             style,
-            pointToLayer: (_feature, latlng) =>
-              L.circleMarker(latlng, {
+            pointToLayer: (feature, latlng) => {
+              const resolvedColor = hasCategories
+                ? resolveFeatureColor(layer, categoryOverrides, feature, layerColor)
+                : layerColor;
+              return L.circleMarker(latlng, {
                 radius: 5,
-                color: layerColor,
+                color: resolvedColor,
                 fillOpacity: layerOpacity,
-              }),
+              });
+            },
           });
 
           geoLayer.on("click", () => onFocusLayer(index));
@@ -221,7 +256,7 @@ function MapView({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectPath, layers, selectedLayerIndexes, boundaryLayerIndex, layerColors]);
+  }, [projectPath, layers, selectedLayerIndexes, boundaryLayerIndex, layerColors, layerCategoryColors]);
 
   useEffect(() => {
     layerOrderRef.current = layerOrder;

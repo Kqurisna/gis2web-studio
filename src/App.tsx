@@ -24,6 +24,7 @@ function App() {
   const [selectedLayerIndexes, setSelectedLayerIndexes] = useState<number[]>([]);
   const [boundaryLayerIndex, setBoundaryLayerIndex] = useState<number | null>(null);
   const [layerColors, setLayerColors] = useState<Record<number, string>>({});
+  const [layerCategoryColors, setLayerCategoryColors] = useState<Record<number, Record<string, string>>>({});
   const [layerOpacities, setLayerOpacities] = useState<Record<number, number>>({});
   const [layerOrder, setLayerOrder] = useState<number[]>([]);
   const [activeLayerIndex, setActiveLayerIndex] = useState<number | null>(null);
@@ -38,12 +39,21 @@ function App() {
     setLayers(newLayers);
 
     const initialColors: Record<number, string> = {};
+    const initialCategoryColors: Record<number, Record<string, string>> = {};
     newLayers.forEach((layer, index) => {
       if (layer.color) {
         initialColors[index] = layer.color;
       }
+      if (layer.categories && layer.categories.length > 0) {
+        const catMap: Record<string, string> = {};
+        layer.categories.forEach((cat) => {
+          catMap[cat.value] = cat.color;
+        });
+        initialCategoryColors[index] = catMap;
+      }
     });
     setLayerColors(initialColors);
+    setLayerCategoryColors(initialCategoryColors);
 
     setLayerOrder(newLayers.map((_, i) => i));
     setActiveLayerIndex(null);
@@ -51,6 +61,13 @@ function App() {
 
   function handleLayerColorChange(index: number, color: string) {
     setLayerColors((prev) => ({ ...prev, [index]: color }));
+  }
+
+  function handleLayerCategoryColorChange(index: number, categoryValue: string, color: string) {
+    setLayerCategoryColors((prev) => ({
+      ...prev,
+      [index]: { ...(prev[index] ?? {}), [categoryValue]: color },
+    }));
   }
 
   function handleLayerOpacityChange(index: number, opacity: number) {
@@ -101,6 +118,7 @@ function App() {
                   boundaryLayerIndex={boundaryLayerIndex}
                   config={config}
                   layerColors={layerColors}
+                  layerCategoryColors={layerCategoryColors}
                   layerOpacities={layerOpacities}
                   layerOrder={layerOrder}
                   activeLayerIndex={activeLayerIndex}
@@ -116,6 +134,8 @@ function App() {
                   onBoundaryLayerIndexChange={setBoundaryLayerIndex}
                   layerColors={layerColors}
                   onLayerColorChange={handleLayerColorChange}
+                  layerCategoryColors={layerCategoryColors}
+                  onLayerCategoryColorChange={handleLayerCategoryColorChange}
                   layerOpacities={layerOpacities}
                   onLayerOpacityChange={handleLayerOpacityChange}
                   layerOrder={layerOrder}
