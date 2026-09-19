@@ -7,11 +7,9 @@ interface LayerPreviewProps {
   datasource: string;
   color: string;
   name: string;
-  x: number;
-  y: number;
 }
 
-function LayerPreview({ projectPath, datasource, color, name, x, y }: LayerPreviewProps) {
+function LayerPreview({ projectPath, datasource, color, name }: LayerPreviewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,7 +87,7 @@ function LayerPreview({ projectPath, datasource, color, name, x, y }: LayerPrevi
   }, [projectPath, datasource, color]);
 
   return (
-    <div className="layer-preview-thumb" style={{ left: x, top: y }}>
+    <div className="layer-preview-thumb">
       <div className="layer-preview-header">
         <span className="layer-preview-color-dot" style={{ backgroundColor: color }} />
         <span className="layer-preview-name">{name}</span>

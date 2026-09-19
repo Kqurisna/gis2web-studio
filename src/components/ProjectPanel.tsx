@@ -65,7 +65,7 @@ function ProjectPanel({
   const [panelTab, setPanelTab] = useState<PanelTab>("layers");
   const [layerFlowStep, setLayerFlowStep] = useState<"select" | "manage">("select");
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [preview, setPreview] = useState<{ index: number; x: number; y: number } | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [expandedLayerIndex, setExpandedLayerIndex] = useState<number | null>(null);
   const hoverTimeoutRef = useRef<number | null>(null);
 
@@ -79,17 +79,19 @@ function ProjectPanel({
     }
   }
 
-  function scheduleShowPreview(index: number, rect: DOMRect) {
+  // Preview mini-map ditampilkan di posisi tetap (pojok kanan atas area peta)
+  // supaya tidak pernah terpotong oleh tepi layar, apa pun baris yang di-hover.
+  function scheduleShowPreview(index: number) {
     if (hoverTimeoutRef.current) window.clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = window.setTimeout(() => {
-      setPreview({ index, x: rect.right + 12, y: rect.top });
+      setPreviewIndex(index);
     }, 300);
   }
 
   function cancelPreview() {
     if (hoverTimeoutRef.current) window.clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = null;
-    setPreview(null);
+    setPreviewIndex(null);
   }
 
   function handleDragStart(pos: number) {
@@ -209,9 +211,7 @@ function ProjectPanel({
                               key={index}
                               className={isActive ? "active-row" : undefined}
                               onClick={() => onFocusLayer(index)}
-                              onMouseEnter={(e) =>
-                                scheduleShowPreview(index, e.currentTarget.getBoundingClientRect())
-                              }
+                              onMouseEnter={() => scheduleShowPreview(index)}
                               onMouseLeave={cancelPreview}
                             >
                               <td onClick={(e) => e.stopPropagation()}>
@@ -302,9 +302,7 @@ function ProjectPanel({
                               key={index}
                               className={isActive ? "active-row" : undefined}
                               onClick={() => onFocusLayer(index)}
-                              onMouseEnter={(e) =>
-                                scheduleShowPreview(index, e.currentTarget.getBoundingClientRect())
-                              }
+                              onMouseEnter={() => scheduleShowPreview(index)}
                               onMouseLeave={cancelPreview}
                             >
                               <td>
@@ -440,9 +438,7 @@ function ProjectPanel({
                             onDragStart={() => handleDragStart(pos)}
                             onDragOver={handleDragOver}
                             onDrop={() => handleDrop(pos)}
-                            onMouseEnter={(e) =>
-                              scheduleShowPreview(layerIdx, e.currentTarget.getBoundingClientRect())
-                            }
+                            onMouseEnter={() => scheduleShowPreview(layerIdx)}
                             onMouseLeave={cancelPreview}
                           >
                             <span className="order-drag-handle">{"\u2630"}</span>
@@ -469,15 +465,13 @@ function ProjectPanel({
         </div>
       )}
 
-      {preview && projectPath && layers[preview.index] && (
+      {previewIndex !== null && projectPath && layers[previewIndex] && (
         <LayerPreview
-          key={preview.index}
+          key={previewIndex}
           projectPath={projectPath}
-          datasource={layers[preview.index].datasource}
-          color={layerColors[preview.index] ?? "#2563eb"}
-          name={layers[preview.index].name}
-          x={preview.x}
-          y={preview.y}
+          datasource={layers[previewIndex].datasource}
+          color={layerColors[previewIndex] ?? "#2563eb"}
+          name={layers[previewIndex].name}
         />
       )}
     </div>

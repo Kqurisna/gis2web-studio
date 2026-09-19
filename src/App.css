@@ -939,8 +939,10 @@ button {
 
 .layer-preview-thumb {
   position: fixed;
+  top: 1rem;
+  right: 1rem;
   z-index: 2000;
-  width: 260px;
+  width: 300px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -990,7 +992,7 @@ button {
 .layer-preview-map-wrap {
   position: relative;
   width: 100%;
-  height: 168px;
+  height: 200px;
 }
 
 .layer-preview-map {
