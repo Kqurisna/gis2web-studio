@@ -80,6 +80,7 @@ function App() {
     basemap: "osm",
     minZoom: 5,
     maxZoom: 18,
+    featureDisplayMode: "card",
   });
 
   function handleLayersLoaded(newLayers: LayerInfo[]) {
@@ -192,16 +193,19 @@ function App() {
                   activeFeature={activeFeature}
                   onFocusFeature={handleFocusFeature}
                   visibleFields={layerVisibleFields}
+                  featureDisplayMode={config.featureDisplayMode}
                 />
-                <FeatureInfoCard
-                  projectPath={projectPath}
-                  layers={layers}
-                  activeFeature={activeFeature}
-                  onClose={() => setActiveFeature(null)}
-                  onOpenFullTable={() => setAttributeTableCollapsed(false)}
-                  visibleFields={layerVisibleFields}
-                  onVisibleFieldsChange={handleVisibleFieldsChange}
-                />
+                {config.featureDisplayMode !== "popup" && (
+                  <FeatureInfoCard
+                    projectPath={projectPath}
+                    layers={layers}
+                    activeFeature={activeFeature}
+                    onClose={() => setActiveFeature(null)}
+                    onOpenFullTable={() => setAttributeTableCollapsed(false)}
+                    visibleFields={layerVisibleFields}
+                    onVisibleFieldsChange={handleVisibleFieldsChange}
+                  />
+                )}
                 <AttributeTablePanel
                   projectPath={projectPath}
                   layers={layers}

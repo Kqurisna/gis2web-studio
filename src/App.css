@@ -1408,3 +1408,24 @@ button {
   font-size: 0.8rem;
   color: var(--color-text-muted);
 }
+
+/* ---------- Config radio item with hint text (stacked layout) ---------- */
+
+.config-radio-item--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.config-radio-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.config-radio-item-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-left: 1.6rem;
+  line-height: 1.4;
+}

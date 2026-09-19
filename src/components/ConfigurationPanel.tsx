@@ -15,10 +15,13 @@ export const BASEMAP_TILE_INFO: Record<BasemapOption, { url: string; attribution
   },
 };
 
+export type FeatureDisplayMode = "both" | "card" | "popup";
+
 export interface WebGisConfig {
   basemap: BasemapOption;
   minZoom: number;
   maxZoom: number;
+  featureDisplayMode: FeatureDisplayMode;
 }
 
 interface ConfigurationPanelProps {
@@ -30,6 +33,24 @@ const BASEMAP_OPTIONS: { value: BasemapOption; label: string }[] = [
   { value: "osm", label: "OpenStreetMap" },
   { value: "satellite", label: "Satellite (Esri World Imagery)" },
   { value: "topo", label: "Topographic (OpenTopoMap)" },
+];
+
+const FEATURE_DISPLAY_OPTIONS: { value: FeatureDisplayMode; label: string; hint: string }[] = [
+  {
+    value: "card",
+    label: "Hanya Card",
+    hint: "Feature Information card mengambang saja, tanpa popup di peta.",
+  },
+  {
+    value: "popup",
+    label: "Hanya Popup",
+    hint: "Popup di peta saja, tanpa Feature Information card.",
+  },
+  {
+    value: "both",
+    label: "Keduanya",
+    hint: "Tampilkan Feature Information card dan popup di peta.",
+  },
 ];
 
 const ZOOM_MIN_LIMIT = 5;
@@ -48,6 +69,10 @@ function ConfigurationPanel({ config, onConfigChange }: ConfigurationPanelProps)
 
   function updateMaxZoom(value: number) {
     onConfigChange({ ...config, maxZoom: value });
+  }
+
+  function updateFeatureDisplayMode(featureDisplayMode: FeatureDisplayMode) {
+    onConfigChange({ ...config, featureDisplayMode });
   }
 
   return (
@@ -117,6 +142,27 @@ function ConfigurationPanel({ config, onConfigChange }: ConfigurationPanelProps)
         <p className="config-static-value">Fit to Boundary (default)</p>
       </section>
 
+      <section className="config-section">
+        <h3>Tampilan Informasi Feature</h3>
+        <div className="config-radio-group">
+          {FEATURE_DISPLAY_OPTIONS.map((option) => (
+            <label key={option.value} className="config-radio-item config-radio-item--stacked">
+              <div className="config-radio-item-row">
+                <input
+                  type="radio"
+                  name="feature-display-mode"
+                  value={option.value}
+                  checked={config.featureDisplayMode === option.value}
+                  onChange={() => updateFeatureDisplayMode(option.value)}
+                />
+                {option.label}
+              </div>
+              <span className="config-radio-item-hint">{option.hint}</span>
+            </label>
+          ))}
+        </div>
+      </section>
+
       <section className="config-summary">
         <h3>Ringkasan Konfigurasi</h3>
         <p>
@@ -127,6 +173,10 @@ function ConfigurationPanel({ config, onConfigChange }: ConfigurationPanelProps)
           Zoom: {config.minZoom} — {config.maxZoom}
         </p>
         <p>Initial View: Fit to Boundary</p>
+        <p>
+          Tampilan Feature:{" "}
+          {FEATURE_DISPLAY_OPTIONS.find((o) => o.value === config.featureDisplayMode)?.label}
+        </p>
       </section>
     </div>
   );

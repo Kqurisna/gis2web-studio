@@ -3,7 +3,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLayerGeojson } from "../lib/layerGeojsonCache";
 import type { LayerInfo } from "./ProjectPanel";
-import type { WebGisConfig, BasemapOption } from "./ConfigurationPanel";
+import type { WebGisConfig, BasemapOption, FeatureDisplayMode } from "./ConfigurationPanel";
 
 interface MapViewProps {
   projectPath: string | null;
@@ -20,6 +20,7 @@ interface MapViewProps {
   activeFeature: { layerIndex: number; featureIndex: number } | null;
   onFocusFeature: (layerIndex: number, featureIndex: number) => void;
   visibleFields: Record<number, string[]>;
+  featureDisplayMode: FeatureDisplayMode;
 }
 
 interface BasemapTileDef {
@@ -100,6 +101,7 @@ function MapView({
   activeFeature,
   onFocusFeature,
   visibleFields,
+  featureDisplayMode,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -111,10 +113,15 @@ function MapView({
   const layerOrderRef = useRef<number[]>(layerOrder);
   const prevBoundaryLayerIndexRef = useRef<number | null>(null);
   const visibleFieldsRef = useRef<Record<number, string[]>>(visibleFields);
+  const featureDisplayModeRef = useRef<FeatureDisplayMode>(featureDisplayMode);
 
   useEffect(() => {
     visibleFieldsRef.current = visibleFields;
   }, [visibleFields]);
+
+  useEffect(() => {
+    featureDisplayModeRef.current = featureDisplayMode;
+  }, [featureDisplayMode]);
 
   const [layerErrors, setLayerErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -226,36 +233,42 @@ function MapView({
             },
             onEachFeature: (feature, layerInstance) => {
               const featureIndex = geojsonData.features.indexOf(feature);
-              if (featureIndex !== -1) {
-                featureLayerRefsRef.current.set(`${index}:${featureIndex}`, layerInstance);
-                layerInstance.on("click", () => onFocusFeature(index, featureIndex));
+              const properties = feature.properties as Record<string, unknown> | null;
+
+              if (properties && Object.keys(properties).length > 0) {
+                layerInstance.bindPopup(() => {
+                  const selectedFields = visibleFieldsRef.current[index];
+                  const allKeys = Object.keys(properties);
+                  const fieldsToShow = selectedFields
+                    ? selectedFields.filter((f) => allKeys.includes(f))
+                    : allKeys;
+
+                  if (fieldsToShow.length === 0) {
+                    return `<div class="feature-popup"><p class="feature-popup-empty">Tidak ada kolom yang dipilih untuk ditampilkan.</p></div>`;
+                  }
+
+                  const rows = fieldsToShow
+                    .map((key) => {
+                      const value = properties[key];
+                      return `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(
+                        value === null || value === undefined ? "-" : String(value)
+                      )}</td></tr>`;
+                    })
+                    .join("");
+
+                  return `<div class="feature-popup"><table class="feature-popup-table">${rows}</table></div>`;
+                });
               }
 
-              const properties = feature.properties as Record<string, unknown> | null;
-              if (!properties || Object.keys(properties).length === 0) return;
-
-              layerInstance.bindPopup(() => {
-                const selectedFields = visibleFieldsRef.current[index];
-                const allKeys = Object.keys(properties);
-                const fieldsToShow = selectedFields
-                  ? selectedFields.filter((f) => allKeys.includes(f))
-                  : allKeys;
-
-                if (fieldsToShow.length === 0) {
-                  return `<div class="feature-popup"><p class="feature-popup-empty">Tidak ada kolom yang dipilih untuk ditampilkan.</p></div>`;
-                }
-
-                const rows = fieldsToShow
-                  .map((key) => {
-                    const value = properties[key];
-                    return `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(
-                      value === null || value === undefined ? "-" : String(value)
-                    )}</td></tr>`;
-                  })
-                  .join("");
-
-                return `<div class="feature-popup"><table class="feature-popup-table">${rows}</table></div>`;
-              });
+              if (featureIndex !== -1) {
+                featureLayerRefsRef.current.set(`${index}:${featureIndex}`, layerInstance);
+                layerInstance.on("click", () => {
+                  onFocusFeature(index, featureIndex);
+                  if (featureDisplayModeRef.current === "card") {
+                    layerInstance.closePopup();
+                  }
+                });
+              }
             },
           });
 
@@ -344,6 +357,7 @@ function MapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !activeFeature) return;
+    if (featureDisplayMode === "card") return;
 
     const key = `${activeFeature.layerIndex}:${activeFeature.featureIndex}`;
     const layerInstance = featureLayerRefsRef.current.get(key);
@@ -357,7 +371,7 @@ function MapView({
 
     anyLayer.openPopup();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFeature]);
+  }, [activeFeature, featureDisplayMode]);
 
   useEffect(() => {
     if (!activeFeature) return;
@@ -369,12 +383,17 @@ function MapView({
     const anyLayer = layerInstance as L.Layer & {
       getPopup?: () => L.Popup | undefined;
       isPopupOpen?: () => boolean;
+      closePopup: () => L.Layer;
     };
 
     if (typeof anyLayer.isPopupOpen === "function" && anyLayer.isPopupOpen()) {
-      anyLayer.getPopup?.()?.update();
+      if (featureDisplayMode === "card") {
+        anyLayer.closePopup();
+      } else {
+        anyLayer.getPopup?.()?.update();
+      }
     }
-  }, [visibleFields, activeFeature]);
+  }, [visibleFields, activeFeature, featureDisplayMode]);
 
   return (
     <div className="map-view-wrapper">
