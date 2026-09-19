@@ -6,11 +6,12 @@ interface LayerPreviewProps {
   projectPath: string;
   datasource: string;
   color: string;
+  name: string;
   x: number;
   y: number;
 }
 
-function LayerPreview({ projectPath, datasource, color, x, y }: LayerPreviewProps) {
+function LayerPreview({ projectPath, datasource, color, name, x, y }: LayerPreviewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,9 +90,24 @@ function LayerPreview({ projectPath, datasource, color, x, y }: LayerPreviewProp
 
   return (
     <div className="layer-preview-thumb" style={{ left: x, top: y }}>
-      {loading && <div className="layer-preview-status">Memuat preview...</div>}
-      {error && <div className="layer-preview-status layer-preview-status--error">Gagal memuat preview</div>}
-      <div ref={containerRef} className="layer-preview-map" />
+      <div className="layer-preview-header">
+        <span className="layer-preview-color-dot" style={{ backgroundColor: color }} />
+        <span className="layer-preview-name">{name}</span>
+      </div>
+      <div className="layer-preview-map-wrap">
+        {loading && (
+          <div className="layer-preview-status">
+            <span className="layer-preview-spinner" />
+            Memuat preview...
+          </div>
+        )}
+        {error && (
+          <div className="layer-preview-status layer-preview-status--error">
+            Gagal memuat preview
+          </div>
+        )}
+        <div ref={containerRef} className="layer-preview-map" />
+      </div>
     </div>
   );
 }

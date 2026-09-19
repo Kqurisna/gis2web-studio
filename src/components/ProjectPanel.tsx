@@ -475,6 +475,7 @@ function ProjectPanel({
           projectPath={projectPath}
           datasource={layers[preview.index].datasource}
           color={layerColors[preview.index] ?? "#2563eb"}
+          name={layers[preview.index].name}
           x={preview.x}
           y={preview.y}
         />
