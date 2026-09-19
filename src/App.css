@@ -1429,3 +1429,82 @@ button {
   margin-left: 1.6rem;
   line-height: 1.4;
 }
+
+/* ---------- Layer flow: select -> manage steps ---------- */
+
+.layer-flow-next-btn {
+  margin-top: 0.9rem;
+  width: 100%;
+  background-color: var(--color-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.12s ease, transform 0.08s ease;
+}
+
+.layer-flow-next-btn:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.layer-flow-next-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.layer-flow-next-btn:disabled {
+  background-color: var(--color-text-faint);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.layer-flow-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  border: none;
+  color: var(--color-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 0.6rem;
+}
+
+.layer-flow-back-btn:hover {
+  color: var(--color-primary-hover);
+}
+
+.layer-note--boundary {
+  color: var(--color-primary-hover);
+  font-weight: 600;
+}
+
+/* ---------- Layer table (select step): fixed width, no horizontal scroll ---------- */
+
+.layer-table--select {
+  table-layout: fixed;
+  width: 100%;
+  max-width: 100%;
+}
+
+.layer-table--select th:nth-child(1),
+.layer-table--select td:nth-child(1) {
+  width: 90px;
+}
+
+.layer-table--select th:nth-child(2),
+.layer-table--select td:nth-child(2) {
+  width: 80px;
+}
+
+.layer-table--select th:nth-child(3),
+.layer-table--select td:nth-child(3) {
+  width: auto;
+  white-space: normal;
+  word-break: break-word;
+}

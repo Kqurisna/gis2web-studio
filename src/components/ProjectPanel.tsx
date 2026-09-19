@@ -63,6 +63,7 @@ function ProjectPanel({
 }: ProjectPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("layers");
+  const [layerFlowStep, setLayerFlowStep] = useState<"select" | "manage">("select");
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [preview, setPreview] = useState<{ index: number; x: number; y: number } | null>(null);
   const [expandedLayerIndex, setExpandedLayerIndex] = useState<number | null>(null);
@@ -183,26 +184,25 @@ function ProjectPanel({
                   </button>
                 </div>
 
-                {panelTab === "layers" && (
+                {panelTab === "layers" && layerFlowStep === "select" && (
                   <>
-                    <h3>Layer ditemukan ({layers.length})</h3>
-                    <table className="layer-table">
+                    <h3>Pilih Layer ({layers.length})</h3>
+                    <p className="order-hint">
+                      Centang layer yang ingin dipublikasikan, lalu tandai salah satu
+                      sebagai Boundary Layer (khusus layer polygon).
+                    </p>
+                    <table className="layer-table layer-table--select">
                       <thead>
                         <tr>
                           <th>Publikasikan</th>
                           <th>Boundary</th>
                           <th>Nama Layer</th>
                           <th>Tipe Geometri</th>
-                          <th>Warna</th>
-                          <th>Opacity</th>
-                          <th>Attribute Table</th>
                         </tr>
                       </thead>
                       <tbody>
                         {layers.map((layer, index) => {
                           const isPolygon = layer.geometry_type === "Polygon";
-                          const color = layerColors[index] ?? "#2563eb";
-                          const opacity = layerOpacities[index] ?? (isPolygon ? 0.35 : 0.7);
                           const isActive = activeLayerIndex === index;
                           return (
                             <tr
@@ -240,6 +240,77 @@ function ProjectPanel({
                                 {layer.geometry_type}
                                 {!isPolygon && (
                                   <span className="layer-note"> (bukan polygon)</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+
+                    <div className="layer-summary">
+                      <p>Layer dipilih untuk dipublikasikan: {selectedLayerIndexes.length}</p>
+                      <p>
+                        Boundary Layer:{" "}
+                        {boundaryLayerIndex !== null
+                          ? layers[boundaryLayerIndex].name
+                          : "(belum dipilih)"}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="layer-flow-next-btn"
+                      disabled={selectedLayerIndexes.length === 0}
+                      onClick={() => setLayerFlowStep("manage")}
+                    >
+                      Lanjut atur tampilan layer
+                    </button>
+                  </>
+                )}
+
+                {panelTab === "layers" && layerFlowStep === "manage" && (
+                  <>
+                    <button
+                      type="button"
+                      className="layer-flow-back-btn"
+                      onClick={() => setLayerFlowStep("select")}
+                    >
+                      {"\u2190"} Kembali pilih layer
+                    </button>
+                    <h3>Atur Layer Terpilih ({selectedLayerIndexes.length})</h3>
+                    <table className="layer-table">
+                      <thead>
+                        <tr>
+                          <th>Nama Layer</th>
+                          <th>Warna</th>
+                          <th>Opacity</th>
+                          <th>Attribute Table</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedLayerIndexes.map((index) => {
+                          const layer = layers[index];
+                          if (!layer) return null;
+                          const isPolygon = layer.geometry_type === "Polygon";
+                          const color = layerColors[index] ?? "#2563eb";
+                          const opacity = layerOpacities[index] ?? (isPolygon ? 0.35 : 0.7);
+                          const isActive = activeLayerIndex === index;
+                          const isBoundary = boundaryLayerIndex === index;
+                          return (
+                            <tr
+                              key={index}
+                              className={isActive ? "active-row" : undefined}
+                              onClick={() => onFocusLayer(index)}
+                              onMouseEnter={(e) =>
+                                scheduleShowPreview(index, e.currentTarget.getBoundingClientRect())
+                              }
+                              onMouseLeave={cancelPreview}
+                            >
+                              <td>
+                                {layer.name}
+                                {isBoundary && (
+                                  <span className="layer-note layer-note--boundary"> (Boundary)</span>
                                 )}
                               </td>
                               <td onClick={(e) => e.stopPropagation()}>
@@ -298,8 +369,10 @@ function ProjectPanel({
                             </tr>
                           );
                         })}
-                        {layers.map((layer, index) => {
+                        {selectedLayerIndexes.map((index) => {
+                          const layer = layers[index];
                           if (
+                            !layer ||
                             expandedLayerIndex !== index ||
                             !layer.categories ||
                             layer.categories.length === 0
@@ -309,7 +382,7 @@ function ProjectPanel({
                           const categoryColorMap = layerCategoryColors[index] ?? {};
                           return (
                             <tr key={`categories-${index}`} className="category-subrow">
-                              <td colSpan={7} onClick={(e) => e.stopPropagation()}>
+                              <td colSpan={4} onClick={(e) => e.stopPropagation()}>
                                 <div className="category-subrow-inner">
                                   <span className="category-subrow-title">
                                     Warna per kategori{layer.category_field ? ` (${layer.category_field})` : ""}:
@@ -343,16 +416,6 @@ function ProjectPanel({
                         })}
                       </tbody>
                     </table>
-
-                    <div className="layer-summary">
-                      <p>Layer dipilih untuk dipublikasikan: {selectedLayerIndexes.length}</p>
-                      <p>
-                        Boundary Layer:{" "}
-                        {boundaryLayerIndex !== null
-                          ? layers[boundaryLayerIndex].name
-                          : "(belum dipilih)"}
-                      </p>
-                    </div>
                   </>
                 )}
 
