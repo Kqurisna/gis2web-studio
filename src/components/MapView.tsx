@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLayerGeojson } from "../lib/layerGeojsonCache";
+import { styleForLayer, resolveFeatureColor } from "../lib/layerStyle";
 import type { LayerInfo } from "./ProjectPanel";
 import type { WebGisConfig, BasemapOption, FeatureDisplayMode } from "./ConfigurationPanel";
 
@@ -45,37 +46,6 @@ const BASEMAP_TILE_CONFIG: Record<BasemapOption, BasemapTileDef> = {
     maxNativeZoom: 17,
   },
 };
-
-function styleForLayer(
-  color: string,
-  isBoundary: boolean,
-  fillOpacity: number
-): L.PathOptions {
-  return isBoundary
-    ? { color, weight: 2, fillOpacity: 0 }
-    : { color, weight: 1.5, fillOpacity };
-}
-
-function resolveFeatureColor(
-  layer: LayerInfo,
-  categoryColorOverrides: Record<string, string> | undefined,
-  feature: GeoJSON.Feature | undefined,
-  fallbackColor: string
-): string {
-  if (!layer.categories || layer.categories.length === 0 || !layer.category_field) {
-    return fallbackColor;
-  }
-  const rawValue = feature?.properties?.[layer.category_field];
-  const valueKey = rawValue === null || rawValue === undefined ? "NULL" : String(rawValue);
-
-  const override = categoryColorOverrides?.[valueKey];
-  if (override) return override;
-
-  const matched = layer.categories.find((cat) => cat.value === valueKey);
-  if (matched) return matched.color;
-
-  return fallbackColor;
-}
 
 function escapeHtml(value: string): string {
   return value

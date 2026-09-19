@@ -474,7 +474,9 @@ function ProjectPanel({
         <LayerPreview
           projectPath={projectPath}
           datasource={layers[lastPreviewIndex].datasource}
-          color={layerColors[lastPreviewIndex] ?? "#2563eb"}
+          layer={layers[lastPreviewIndex]}
+          fallbackColor={layerColors[lastPreviewIndex] ?? "#2563eb"}
+          categoryColorOverrides={layerCategoryColors[lastPreviewIndex]}
           name={layers[lastPreviewIndex].name}
           visible={previewIndex !== null}
         />

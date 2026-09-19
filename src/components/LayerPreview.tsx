@@ -1,16 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import { getCachedGeojson, fetchLayerGeojson } from "../lib/layerGeojsonCache";
+import { styleForLayer, resolveFeatureColor } from "../lib/layerStyle";
+import type { LayerInfo } from "./ProjectPanel";
 
 interface LayerPreviewProps {
   projectPath: string;
   datasource: string;
-  color: string;
+  layer: LayerInfo;
+  fallbackColor: string;
+  categoryColorOverrides?: Record<string, string>;
   name: string;
   visible: boolean;
 }
 
-function LayerPreview({ projectPath, datasource, color, name, visible }: LayerPreviewProps) {
+function LayerPreview({
+  projectPath,
+  datasource,
+  layer,
+  fallbackColor,
+  categoryColorOverrides,
+  name,
+  visible,
+}: LayerPreviewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const vectorLayerRef = useRef<L.GeoJSON | null>(null);
@@ -41,12 +53,16 @@ function LayerPreview({ projectPath, datasource, color, name, visible }: LayerPr
     };
   }, []);
 
-  // Setiap datasource/color berganti, cukup ganti layer vektornya saja di
-  // atas map yang sudah ada (bukan membuat map baru).
+  // Setiap datasource/layer/fallbackColor/categoryColorOverrides berganti,
+  // cukup ganti layer vektornya saja di atas map yang sudah ada (bukan
+  // membuat map baru), lalu re-style per-feature memakai logic yang sama
+  // dengan map utama (resolveFeatureColor + styleForLayer).
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
+
+    const hasCategories = !!layer.categories && layer.categories.length > 0;
 
     function applyData(text: string) {
       if (cancelled || !mapRef.current) return;
@@ -57,10 +73,21 @@ function LayerPreview({ projectPath, datasource, color, name, visible }: LayerPr
         vectorLayerRef.current = null;
       }
 
+      const style: L.StyleFunction = (feature) => {
+        const resolvedColor = hasCategories
+          ? resolveFeatureColor(layer, categoryColorOverrides, feature, fallbackColor)
+          : fallbackColor;
+        return styleForLayer(resolvedColor, false, 0.5);
+      };
+
       const geoLayer = L.geoJSON(data, {
-        style: { color, weight: 2.5, fillOpacity: 0.12 },
-        pointToLayer: (_f, latlng) =>
-          L.circleMarker(latlng, { radius: 4, color, fillOpacity: 0.7 }),
+        style,
+        pointToLayer: (feature, latlng) => {
+          const resolvedColor = hasCategories
+            ? resolveFeatureColor(layer, categoryColorOverrides, feature, fallbackColor)
+            : fallbackColor;
+          return L.circleMarker(latlng, { radius: 4, color: resolvedColor, fillOpacity: 0.7 });
+        },
       }).addTo(mapRef.current);
       vectorLayerRef.current = geoLayer;
 
@@ -92,12 +119,12 @@ function LayerPreview({ projectPath, datasource, color, name, visible }: LayerPr
     return () => {
       cancelled = true;
     };
-  }, [projectPath, datasource, color]);
+  }, [projectPath, datasource, layer, fallbackColor, categoryColorOverrides]);
 
   return (
     <div className={"layer-preview-thumb" + (visible ? " layer-preview-thumb--visible" : "")}>
       <div className="layer-preview-header">
-        <span className="layer-preview-color-dot" style={{ backgroundColor: color }} />
+        <span className="layer-preview-color-dot" style={{ backgroundColor: fallbackColor }} />
         <span className="layer-preview-name">{name}</span>
       </div>
       <div className="layer-preview-map-wrap">
