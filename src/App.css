@@ -950,18 +950,17 @@ button {
   overflow: hidden;
   pointer-events: none;
   will-change: transform, opacity;
-  animation: layer-preview-fade-in 0.16s ease-out;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-50%) scale(0.98);
+  transition: opacity 0.16s ease-out, transform 0.16s ease-out, visibility 0s linear 0.16s;
 }
 
-@keyframes layer-preview-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-50%) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-50%) scale(1);
-  }
+.layer-preview-thumb--visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) scale(1);
+  transition: opacity 0.16s ease-out, transform 0.16s ease-out;
 }
 
 .layer-preview-header {
