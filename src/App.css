@@ -939,49 +939,50 @@ button {
 
 .layer-preview-thumb {
   position: fixed;
-  top: 1rem;
-  right: 1rem;
+  top: 50%;
+  right: 2.75rem;
   z-index: 2000;
-  width: 300px;
+  width: 360px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   pointer-events: none;
-  animation: layer-preview-fade-in 0.12s ease-out;
+  will-change: transform, opacity;
+  animation: layer-preview-fade-in 0.16s ease-out;
 }
 
 @keyframes layer-preview-fade-in {
   from {
     opacity: 0;
-    transform: translateY(2px);
+    transform: translateY(-50%) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(-50%) scale(1);
   }
 }
 
 .layer-preview-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 0.7rem;
+  gap: 0.55rem;
+  padding: 0.75rem 0.9rem;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface-alt);
 }
 
 .layer-preview-color-dot {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
 }
 
 .layer-preview-name {
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--color-text);
   overflow: hidden;
@@ -992,7 +993,7 @@ button {
 .layer-preview-map-wrap {
   position: relative;
   width: 100%;
-  height: 200px;
+  height: 260px;
 }
 
 .layer-preview-map {

@@ -66,6 +66,10 @@ function ProjectPanel({
   const [layerFlowStep, setLayerFlowStep] = useState<"select" | "manage">("select");
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  // Index terakhir yang pernah di-hover, dipakai supaya LayerPreview tetap
+  // mounted (map Leaflet tidak dibuat ulang) walau hover sedang tidak aktif;
+  // visibilitasnya diatur lewat CSS (prop `visible`), bukan unmount/mount.
+  const [lastPreviewIndex, setLastPreviewIndex] = useState<number | null>(null);
   const [expandedLayerIndex, setExpandedLayerIndex] = useState<number | null>(null);
   const hoverTimeoutRef = useRef<number | null>(null);
 
@@ -85,6 +89,7 @@ function ProjectPanel({
     if (hoverTimeoutRef.current) window.clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = window.setTimeout(() => {
       setPreviewIndex(index);
+      setLastPreviewIndex(index);
     }, 300);
   }
 
@@ -465,13 +470,13 @@ function ProjectPanel({
         </div>
       )}
 
-      {previewIndex !== null && projectPath && layers[previewIndex] && (
+      {lastPreviewIndex !== null && projectPath && layers[lastPreviewIndex] && (
         <LayerPreview
-          key={previewIndex}
           projectPath={projectPath}
-          datasource={layers[previewIndex].datasource}
-          color={layerColors[previewIndex] ?? "#2563eb"}
-          name={layers[previewIndex].name}
+          datasource={layers[lastPreviewIndex].datasource}
+          color={layerColors[lastPreviewIndex] ?? "#2563eb"}
+          name={layers[lastPreviewIndex].name}
+          visible={previewIndex !== null}
         />
       )}
     </div>

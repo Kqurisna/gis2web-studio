@@ -7,87 +7,95 @@ interface LayerPreviewProps {
   datasource: string;
   color: string;
   name: string;
+  visible: boolean;
 }
 
-function LayerPreview({ projectPath, datasource, color, name }: LayerPreviewProps) {
+function LayerPreview({ projectPath, datasource, color, name, visible }: LayerPreviewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const vectorLayerRef = useRef<L.GeoJSON | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Buat instance Leaflet map hanya SEKALI selama komponen ini hidup (tidak
+  // pernah di-unmount oleh parent lagi), supaya tile basemap tidak perlu
+  // dimuat ulang dari nol setiap kali user hover ke layer lain.
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = L.map(containerRef.current, {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false,
+    });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  // Setiap datasource/color berganti, cukup ganti layer vektornya saja di
+  // atas map yang sudah ada (bukan membuat map baru).
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
 
-    function renderMap(text: string) {
-      if (cancelled || !containerRef.current) return;
+    function applyData(text: string) {
+      if (cancelled || !mapRef.current) return;
       const data = JSON.parse(text);
 
-      const map = L.map(containerRef.current, {
-        zoomControl: false,
-        attributionControl: false,
-        dragging: false,
-        scrollWheelZoom: false,
-        doubleClickZoom: false,
-        boxZoom: false,
-        keyboard: false,
-      });
-      mapRef.current = map;
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+      if (vectorLayerRef.current) {
+        mapRef.current.removeLayer(vectorLayerRef.current);
+        vectorLayerRef.current = null;
+      }
 
       const geoLayer = L.geoJSON(data, {
         style: { color, weight: 2.5, fillOpacity: 0.12 },
         pointToLayer: (_f, latlng) =>
           L.circleMarker(latlng, { radius: 4, color, fillOpacity: 0.7 }),
-      }).addTo(map);
+      }).addTo(mapRef.current);
+      vectorLayerRef.current = geoLayer;
 
       const bounds = geoLayer.getBounds();
       if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [12, 12] });
+        mapRef.current.fitBounds(bounds, { padding: [12, 12] });
       } else {
-        map.setView([0, 0], 2);
+        mapRef.current.setView([0, 0], 2);
       }
       setLoading(false);
     }
 
     const cached = getCachedGeojson(projectPath, datasource);
     if (cached !== null) {
-      setLoading(false);
-      renderMap(cached);
-      return () => {
-        cancelled = true;
-        if (mapRef.current) {
-          mapRef.current.remove();
-          mapRef.current = null;
-        }
-      };
+      applyData(cached);
+    } else {
+      fetchLayerGeojson(projectPath, datasource)
+        .then((text) => {
+          if (!cancelled) applyData(text);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setError(String(err));
+            setLoading(false);
+          }
+        });
     }
-
-    setLoading(true);
-    setError(null);
-
-    fetchLayerGeojson(projectPath, datasource)
-      .then((text) => {
-        if (!cancelled) renderMap(text);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(String(err));
-          setLoading(false);
-        }
-      });
 
     return () => {
       cancelled = true;
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
     };
   }, [projectPath, datasource, color]);
 
   return (
-    <div className="layer-preview-thumb">
+    <div className={"layer-preview-thumb" + (visible ? " layer-preview-thumb--visible" : "")}>
       <div className="layer-preview-header">
         <span className="layer-preview-color-dot" style={{ backgroundColor: color }} />
         <span className="layer-preview-name">{name}</span>
