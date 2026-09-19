@@ -83,7 +83,17 @@ function App() {
     featureDisplayMode: "card",
   });
 
-  function handleLayersLoaded(newLayers: LayerInfo[]) {
+  // Layer basemap/tile (mis. "OpenStreetMap" XYZ) yang ikut terbaca dari
+  // file project QGIS bukan data vektor sungguhan dan tidak bisa diproses
+  // sebagai layer GIS biasa, jadi disaring di sini sebelum masuk ke daftar
+  // layer yang tampil/bisa dipilih user.
+  function isBasemapTileLayer(layer: LayerInfo): boolean {
+    const ds = layer.datasource ?? "";
+    return ds.includes("type=xyz") || ds.startsWith("crs=");
+  }
+
+  function handleLayersLoaded(rawLayers: LayerInfo[]) {
+    const newLayers = rawLayers.filter((layer) => !isBasemapTileLayer(layer));
     setLayers(newLayers);
 
     const initialColors: Record<number, string> = {};
