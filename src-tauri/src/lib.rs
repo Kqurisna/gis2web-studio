@@ -111,6 +111,7 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
     let mut in_symbol_sublayer = false;
     let mut color_found = false;
     let mut current_geometry = "Unknown".to_string();
+    let mut current_layer_type: Option<String> = None;
     let mut current_name: Option<String> = None;
     let mut current_datasource = String::new();
     let mut current_color: Option<String> = None;
@@ -128,6 +129,7 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
             Ok(Event::Start(e)) | Ok(Event::Empty(e)) if e.name().as_ref() == b"maplayer" => {
                 in_maplayer = true;
                 current_geometry = "Unknown".to_string();
+                current_layer_type = None;
                 current_name = None;
                 current_datasource = String::new();
                 current_color = None;
@@ -148,6 +150,10 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                         if attr.key.as_ref() == b"geometry" {
                             if let Ok(value) = attr.unescape_value() {
                                 current_geometry = normalize_geometry_type(&value);
+                            }
+                        } else if attr.key.as_ref() == b"type" {
+                            if let Ok(value) = attr.unescape_value() {
+                                current_layer_type = Some(value.to_lowercase());
                             }
                         }
                     }
@@ -375,7 +381,16 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                 in_datasource = false;
             }
             Ok(Event::End(e)) if e.name().as_ref() == b"maplayer" => {
-                if let Some(name) = current_name.take() {
+                // Hanya layer vektor yang relevan untuk Web GIS. Layer raster
+                // (mis. gambar/screenshot yang tidak sengaja ikut tersimpan
+                // di project QGIS) atau tipe lain (mesh, plugin, dsb) tidak
+                // dimasukkan ke daftar layer.
+                let is_vector_layer = match &current_layer_type {
+                    Some(t) => t == "vector",
+                    None => true, // beberapa versi QGIS tidak menulis atribut type; anggap vector agar tidak menghapus layer yang valid
+                };
+
+                if let Some(name) = current_name.take().filter(|_| is_vector_layer) {
                     let final_categories = if category_defs.is_empty() {
                         None
                     } else {
