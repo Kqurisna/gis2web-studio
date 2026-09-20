@@ -304,6 +304,62 @@ function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layerOrder]);
 
+  // Opacity harus langsung terlihat begitu slider digeser, tanpa menunggu
+  // effect loadLayers (yang berat: clear + rebuild semua layer, reset popup,
+  // reset highlight). Jadi cukup panggil setStyle() ke layer yang sudah
+  // terender, dengan opacity terbaru, tanpa fetch ulang atau rebuild apa pun.
+  useEffect(() => {
+    layerRefsRef.current.forEach((geoLayer, index) => {
+      const layer = layers[index];
+      if (!layer) return;
+
+      const isBoundary = index === boundaryLayerIndex;
+      const layerColor = layerColors[index] ?? (isBoundary ? "#f97316" : "#2563eb");
+      const layerOpacity = layerOpacities[index] ?? 0.35;
+      const categoryOverrides = layerCategoryColors[index];
+      const hasCategories = !!layer.categories && layer.categories.length > 0;
+
+      const style: L.StyleFunction = (feature) => {
+        const resolvedColor = hasCategories
+          ? resolveFeatureColor(layer, categoryOverrides, feature, layerColor)
+          : layerColor;
+        return styleForLayer(resolvedColor, isBoundary, layerOpacity);
+      };
+
+      geoLayer.setStyle(style);
+      layerStyleRef.current.set(index, style);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layerOpacities]);
+
+  // Opacity harus langsung terlihat begitu slider digeser, tanpa menunggu
+  // effect loadLayers (yang berat: clear + rebuild semua layer, reset popup,
+  // reset highlight). Jadi cukup panggil setStyle() ke layer yang sudah
+  // terender, dengan opacity terbaru, tanpa fetch ulang atau rebuild apa pun.
+  useEffect(() => {
+    layerRefsRef.current.forEach((geoLayer, index) => {
+      const layer = layers[index];
+      if (!layer) return;
+
+      const isBoundary = index === boundaryLayerIndex;
+      const layerColor = layerColors[index] ?? (isBoundary ? "#f97316" : "#2563eb");
+      const layerOpacity = layerOpacities[index] ?? 0.35;
+      const categoryOverrides = layerCategoryColors[index];
+      const hasCategories = !!layer.categories && layer.categories.length > 0;
+
+      const style: L.StyleFunction = (feature) => {
+        const resolvedColor = hasCategories
+          ? resolveFeatureColor(layer, categoryOverrides, feature, layerColor)
+          : layerColor;
+        return styleForLayer(resolvedColor, isBoundary, layerOpacity);
+      };
+
+      geoLayer.setStyle(style);
+      layerStyleRef.current.set(index, style);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layerOpacities]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || activeLayerIndex === null) return;
