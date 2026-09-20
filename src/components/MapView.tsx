@@ -454,10 +454,59 @@ function MapView({
 
       if (featureIndex === activeFeature.featureIndex) {
         anyLayer.setStyle(getStrongHighlightStyle(baseStyle));
+        if (typeof (anyLayer as L.Path).bringToFront === "function") {
+          (anyLayer as L.Path).bringToFront();
+        }
       } else {
         anyLayer.setStyle(getSubtleHighlightStyle(baseStyle));
       }
     });
+  }, [activeFeature]);
+
+  // Safety-net: zoom cepat kadang membuat Leaflet me-redraw path SVG
+  // sehingga style highlight sesaat hilang. Re-apply highlight setelah
+  // zoom selesai, tanpa mengubah logic utama di atas.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const reapplyHighlight = () => {
+      if (!activeFeature) return;
+
+      featureLayerRefsRef.current.forEach((layerInstance, key) => {
+        const [layerIndexStr, featureIndexStr] = key.split(":");
+        const layerIndex = Number(layerIndexStr);
+        const featureIndex = Number(featureIndexStr);
+
+        if (layerIndex !== activeFeature.layerIndex) return;
+
+        const styleFnOrObj = layerStyleRef.current.get(layerIndex);
+        if (!styleFnOrObj) return;
+
+        const anyLayer = layerInstance as L.Path & { feature?: GeoJSON.Feature };
+        if (typeof anyLayer.setStyle !== "function") return;
+
+        const baseStyle =
+          typeof styleFnOrObj === "function"
+            ? styleFnOrObj(anyLayer.feature as GeoJSON.Feature)
+            : styleFnOrObj;
+        if (!baseStyle) return;
+
+        if (featureIndex === activeFeature.featureIndex) {
+          anyLayer.setStyle(getStrongHighlightStyle(baseStyle));
+          if (typeof anyLayer.bringToFront === "function") {
+            anyLayer.bringToFront();
+          }
+        } else {
+          anyLayer.setStyle(getSubtleHighlightStyle(baseStyle));
+        }
+      });
+    };
+
+    map.on("zoomend", reapplyHighlight);
+    return () => {
+      map.off("zoomend", reapplyHighlight);
+    };
   }, [activeFeature]);
 
   return (
