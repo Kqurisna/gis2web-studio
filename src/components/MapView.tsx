@@ -189,14 +189,20 @@ function MapView({
       const selected = candidates[nextIndex];
       onFocusFeature(selected.layerIndex, selected.featureIndex);
 
-      const anyLayer = selected.layerInstance as L.Layer & {
-        openPopup?: (latlng?: L.LatLng) => L.Layer;
-        closePopup?: () => L.Layer;
-      };
-
-      if (featureDisplayModeRef.current === "card") {
+      // Leaflet otomatis membuka popup pada layer yang benar-benar disentuh
+      // (e.target), terlepas dari feature mana yang dipilih oleh cycle logic
+      // di atas. Supaya mode "card" benar-benar tidak menampilkan popup apa
+      // pun, tutup SEMUA popup yang mungkin terbuka di seluruh feature dulu,
+      // baru buka ulang sesuai mode yang aktif.
+      featureLayerRefsRef.current.forEach((layerInstance) => {
+        const anyLayer = layerInstance as L.Layer & { closePopup?: () => L.Layer };
         anyLayer.closePopup?.();
-      } else {
+      });
+
+      if (featureDisplayModeRef.current !== "card") {
+        const anyLayer = selected.layerInstance as L.Layer & {
+          openPopup?: (latlng?: L.LatLng) => L.Layer;
+        };
         anyLayer.openPopup?.(e.latlng);
       }
     };
