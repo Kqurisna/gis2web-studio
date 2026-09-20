@@ -100,8 +100,8 @@ function FeatureInfoCard({
     }
   }
 
-  function showAllFields() {
-    onVisibleFieldsChange(layerIndex, null);
+  function clearAllFields() {
+    onVisibleFieldsChange(layerIndex, []);
   }
 
   return (
@@ -132,9 +132,9 @@ function FeatureInfoCard({
                     <button
                       type="button"
                       className="feature-info-card-column-reset"
-                      onClick={showAllFields}
+                      onClick={clearAllFields}
                     >
-                      Tampilkan semua
+                      Kosongkan semua
                     </button>
                   </div>
                   <div className="feature-info-card-column-list">
