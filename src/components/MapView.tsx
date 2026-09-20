@@ -5,6 +5,8 @@ import { fetchLayerGeojson } from "../lib/layerGeojsonCache";
 import { styleForLayer, resolveFeatureColor, getStrongHighlightStyle, getSubtleHighlightStyle } from "../lib/layerStyle";
 import { booleanPointInPolygon } from "@turf/boolean-point-in-polygon";
 import { point as turfPoint } from "@turf/helpers";
+import { pointToLineDistance } from "@turf/point-to-line-distance";
+import { polygonToLine } from "@turf/polygon-to-line";
 import type { LayerInfo } from "./ProjectPanel";
 import type { WebGisConfig, BasemapOption, FeatureDisplayMode } from "./ConfigurationPanel";
 
@@ -112,12 +114,29 @@ function MapView({
 
   const handleCycleClickRef = useRef<((e: L.LeafletMouseEvent) => void) | null>(null);
 
+  const NEAREST_FEATURE_PIXEL_TOLERANCE = 12;
+
   function getVisibleZOrderedFeatureCandidates(latlng: L.LatLng) {
     const group = dataLayerGroupRef.current;
-    if (!group) return [];
+    const map = mapRef.current;
+    if (!group || !map) return [];
 
     const pt = turfPoint([latlng.lng, latlng.lat]);
     const candidates: { layerIndex: number; featureIndex: number; layerInstance: L.Layer }[] = [];
+    // Dipakai untuk fallback nearest-feature: jarak (meter) tiap kandidat ke titik klik.
+    const nearestByDistance: {
+      layerIndex: number;
+      featureIndex: number;
+      layerInstance: L.Layer;
+      distanceMeters: number;
+    }[] = [];
+
+    // Toleransi klik dalam meter, dihitung dari toleransi piksel layar pada
+    // zoom saat ini, supaya konsisten secara visual di semua level zoom.
+    const clickPoint = map.latLngToContainerPoint(latlng);
+    const toleranceProbePoint = L.point(clickPoint.x + NEAREST_FEATURE_PIXEL_TOLERANCE, clickPoint.y);
+    const toleranceLatLng = map.containerPointToLatLng(toleranceProbePoint);
+    const toleranceMeters = latlng.distanceTo(toleranceLatLng);
 
     const orderedLayerIndexes = [...layerOrderRef.current];
     layerRefsRef.current.forEach((_geoLayer, idx) => {
@@ -137,12 +156,55 @@ function MapView({
       features.forEach((feature, featureIndex) => {
         const geomType = feature.geometry?.type;
         if (geomType !== "Polygon" && geomType !== "MultiPolygon") return;
+        const typedFeature = feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
+
         try {
-          if (booleanPointInPolygon(pt, feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>)) {
+          if (booleanPointInPolygon(pt, typedFeature)) {
             matchedInLayer.push(featureIndex);
+            return;
           }
         } catch {
-          // geometry tidak valid, skip
+          // geometry tidak valid, skip exact hit-test untuk feature ini
+        }
+
+        // Fallback: feature kecil (mis. buffer radius kecil) sering meleset
+        // dari exact point-in-polygon. Hitung jarak titik klik ke garis luar
+        // polygon; kalau masih dalam toleransi piksel, anggap "kena".
+        try {
+          const boundaryLine = polygonToLine(typedFeature);
+          const lineFeatures =
+            boundaryLine.type === "FeatureCollection" ? boundaryLine.features : [boundaryLine];
+
+          // pointToLineDistance hanya menerima LineString tunggal; pecah
+          // setiap MultiLineString menjadi beberapa LineString terpisah.
+          const singleLines: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+          lineFeatures.forEach((lf) => {
+            if (lf.geometry.type === "LineString") {
+              singleLines.push(lf as GeoJSON.Feature<GeoJSON.LineString>);
+            } else if (lf.geometry.type === "MultiLineString") {
+              lf.geometry.coordinates.forEach((coords) => {
+                singleLines.push({
+                  type: "Feature",
+                  properties: {},
+                  geometry: { type: "LineString", coordinates: coords },
+                });
+              });
+            }
+          });
+
+          for (const line of singleLines) {
+            const distanceMeters = pointToLineDistance(pt, line, { units: "meters" });
+            if (distanceMeters <= toleranceMeters) {
+              const key = `${layerIndex}:${featureIndex}`;
+              const layerInstance = featureLayerRefsRef.current.get(key);
+              if (layerInstance) {
+                nearestByDistance.push({ layerIndex, featureIndex, layerInstance, distanceMeters });
+              }
+              break;
+            }
+          }
+        } catch {
+          // geometry tidak valid untuk fallback juga, skip
         }
       });
 
@@ -155,6 +217,18 @@ function MapView({
             candidates.push({ layerIndex, featureIndex, layerInstance });
           }
         });
+    }
+
+    // Exact hit selalu diprioritaskan. Fallback nearest-feature hanya dipakai
+    // kalau tidak ada exact hit sama sekali di titik klik, diurutkan dari
+    // yang paling dekat ke titik klik.
+    if (candidates.length === 0 && nearestByDistance.length > 0) {
+      nearestByDistance.sort((a, b) => a.distanceMeters - b.distanceMeters);
+      return nearestByDistance.map(({ layerIndex, featureIndex, layerInstance }) => ({
+        layerIndex,
+        featureIndex,
+        layerInstance,
+      }));
     }
 
     return candidates;
