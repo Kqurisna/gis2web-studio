@@ -25,6 +25,7 @@ function FeatureInfoCard({
   const layer = activeFeature ? layers[activeFeature.layerIndex] : undefined;
   const [fetchedText, setFetchedText] = useState<string | null>(null);
   const [columnPickerOpen, setColumnPickerOpen] = useState(false);
+  const [columnSearchQuery, setColumnSearchQuery] = useState("");
   const columnPickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -66,6 +67,12 @@ function FeatureInfoCard({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [columnPickerOpen]);
 
+  useEffect(() => {
+    if (!columnPickerOpen) {
+      setColumnSearchQuery("");
+    }
+  }, [columnPickerOpen]);
+
   const feature = useMemo<GeojsonFeatureLike | null>(() => {
     if (!activeFeature || !fetchedText) return null;
     const parsed = parseGeojsonForAttributeTable(fetchedText);
@@ -76,6 +83,13 @@ function FeatureInfoCard({
     if (!fetchedText) return [];
     return parseGeojsonForAttributeTable(fetchedText).fields;
   }, [fetchedText]);
+
+  const showColumnSearch = allFields.length > 8;
+  const displayedFields = useMemo(() => {
+    if (!showColumnSearch || columnSearchQuery.trim() === "") return allFields;
+    const query = columnSearchQuery.trim().toLowerCase();
+    return allFields.filter((field) => field.toLowerCase().includes(query));
+  }, [allFields, showColumnSearch, columnSearchQuery]);
 
   if (!activeFeature || !layer || !feature) return null;
 
@@ -137,17 +151,38 @@ function FeatureInfoCard({
                       Kosongkan semua
                     </button>
                   </div>
+                  {showColumnSearch && (
+                    <div className="feature-info-card-column-search">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="M21 21l-4.3-4.3" />
+                      </svg>
+                      <input
+                        type="text"
+                        placeholder="Cari kolom..."
+                        value={columnSearchQuery}
+                        onChange={(e) => setColumnSearchQuery(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+                  )}
                   <div className="feature-info-card-column-list">
-                    {allFields.map((field) => (
-                      <label key={field} className="feature-info-card-column-item">
-                        <input
-                          type="checkbox"
-                          checked={activeFields.includes(field)}
-                          onChange={() => toggleField(field)}
-                        />
-                        <span>{field}</span>
-                      </label>
-                    ))}
+                    {displayedFields.length === 0 ? (
+                      <div className="feature-info-card-column-empty">
+                        Tidak ada kolom yang cocok dengan "{columnSearchQuery}".
+                      </div>
+                    ) : (
+                      displayedFields.map((field) => (
+                        <label key={field} className="feature-info-card-column-item">
+                          <input
+                            type="checkbox"
+                            checked={activeFields.includes(field)}
+                            onChange={() => toggleField(field)}
+                          />
+                          <span>{field}</span>
+                        </label>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
