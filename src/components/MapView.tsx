@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLayerGeojson } from "../lib/layerGeojsonCache";
-import { styleForLayer, resolveFeatureColor } from "../lib/layerStyle";
+import { styleForLayer, resolveFeatureColor, getStrongHighlightStyle, getSubtleHighlightStyle } from "../lib/layerStyle";
 import type { LayerInfo } from "./ProjectPanel";
 import type { WebGisConfig, BasemapOption, FeatureDisplayMode } from "./ConfigurationPanel";
 
@@ -420,6 +420,45 @@ function MapView({
       }
     }
   }, [visibleFields, activeFeature, featureDisplayMode]);
+
+  // Visual feedback: feature yang diklik mendapat strong highlight,
+  // feature lain di layer yang sama mendapat subtle highlight,
+  // feature dari layer lain kembali ke style normal.
+  // Generic: dikelompokkan berdasarkan layerIndex (key "layerIndex:featureIndex"),
+  // bukan berdasarkan nama layer.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    featureLayerRefsRef.current.forEach((layerInstance, key) => {
+      const [layerIndexStr, featureIndexStr] = key.split(":");
+      const layerIndex = Number(layerIndexStr);
+      const featureIndex = Number(featureIndexStr);
+
+      const styleFnOrObj = layerStyleRef.current.get(layerIndex);
+      if (!styleFnOrObj) return;
+
+      const anyLayer = layerInstance as L.Path & { feature?: GeoJSON.Feature };
+      if (typeof anyLayer.setStyle !== "function") return;
+
+      const baseStyle =
+        typeof styleFnOrObj === "function"
+          ? styleFnOrObj(anyLayer.feature as GeoJSON.Feature)
+          : styleFnOrObj;
+      if (!baseStyle) return;
+
+      if (!activeFeature || activeFeature.layerIndex !== layerIndex) {
+        anyLayer.setStyle(baseStyle);
+        return;
+      }
+
+      if (featureIndex === activeFeature.featureIndex) {
+        anyLayer.setStyle(getStrongHighlightStyle(baseStyle));
+      } else {
+        anyLayer.setStyle(getSubtleHighlightStyle(baseStyle));
+      }
+    });
+  }, [activeFeature]);
 
   return (
     <div className="map-view-wrapper">
