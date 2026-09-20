@@ -211,7 +211,7 @@ function MapView({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = L.map(containerRef.current, { zoomControl: false }).setView(
+    const map = L.map(containerRef.current, { zoomControl: false, doubleClickZoom: false }).setView(
       [-2.5, 118],
       5
     );
@@ -219,7 +219,19 @@ function MapView({
     dataLayerGroupRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
 
+    // Trackpad MacBook: double-tap 2 jari memicu gesture native "Smart Zoom"
+    // bawaan WKWebView, terpisah dari dblclick Leaflet biasa. Cegah di level
+    // container map saja (bukan document/global) supaya tidak mengganggu
+    // double-click di elemen UI lain (form, panel, dsb).
+    const containerEl = containerRef.current;
+    const preventNativeDblZoom = (ev: Event) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+    };
+    containerEl.addEventListener("dblclick", preventNativeDblZoom, { capture: true });
+
     return () => {
+      containerEl.removeEventListener("dblclick", preventNativeDblZoom, { capture: true } as EventListenerOptions);
       map.remove();
       mapRef.current = null;
     };
@@ -335,7 +347,7 @@ function MapView({
                     .join("");
 
                   return `<div class="feature-popup"><table class="feature-popup-table">${rows}</table></div>`;
-                });
+                }, { autoPan: false });
               }
 
               if (featureIndex !== -1) {
