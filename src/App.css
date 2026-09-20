@@ -898,6 +898,16 @@ button {
   opacity: 0.4;
 }
 
+.order-list-item--locked {
+  cursor: default;
+  background: var(--color-surface-alt);
+  border-style: dashed;
+}
+
+.order-list-item--locked:hover {
+  box-shadow: none;
+}
+
 .order-drag-handle {
   color: var(--color-text-faint);
   font-size: 0.9rem;

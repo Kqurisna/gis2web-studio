@@ -430,32 +430,48 @@ function ProjectPanel({
                       atau paling belakang (bawah) di peta.
                     </p>
                     <div className="order-list">
-                      {layerOrder.map((layerIdx, pos) => {
+                      {layerOrder
+                        .map((layerIdx, pos) => ({ layerIdx, pos }))
+                        .filter(
+                          ({ layerIdx }) =>
+                            selectedLayerIndexes.includes(layerIdx) || layerIdx === boundaryLayerIndex
+                        )
+                        .map(({ layerIdx, pos }, displayIndex) => {
                         const layer = layers[layerIdx];
                         if (!layer) return null;
+                        const isBoundary = layerIdx === boundaryLayerIndex;
                         return (
                           <div
                             key={layerIdx}
                             className={
-                              "order-list-item" + (dragIndex === pos ? " dragging" : "")
+                              "order-list-item" +
+                              (dragIndex === pos ? " dragging" : "") +
+                              (isBoundary ? " order-list-item--locked" : "")
                             }
-                            draggable
-                            onDragStart={() => handleDragStart(pos)}
+                            draggable={!isBoundary}
+                            onDragStart={() => !isBoundary && handleDragStart(pos)}
                             onDragOver={handleDragOver}
                             onDrop={() => handleDrop(pos)}
                             onMouseEnter={() => scheduleShowPreview(layerIdx)}
                             onMouseLeave={cancelPreview}
                           >
-                            <span className="order-drag-handle">{"\u2630"}</span>
+                            <span className="order-drag-handle">
+                              {isBoundary ? "\uD83D\uDD12" : "\u2630"}
+                            </span>
                             <span
                               className="order-color-dot"
                               style={{ backgroundColor: layerColors[layerIdx] ?? "#2563eb" }}
                             />
                             <span className="order-item-name">{layer.name}</span>
-                            {pos === 0 && <span className="order-item-badge">Paling depan</span>}
-                            {pos === layerOrder.length - 1 && layerOrder.length > 1 && (
-                              <span className="order-item-badge order-item-badge--back">
-                                Paling belakang
+                            {displayIndex === 0 && !isBoundary && (
+                              <span className="order-item-badge">Paling depan</span>
+                            )}
+                            {isBoundary && (
+                              <span
+                                className="order-item-badge order-item-badge--back"
+                                title="Boundary selalu ditampilkan paling belakang"
+                              >
+                                Dasar
                               </span>
                             )}
                           </div>

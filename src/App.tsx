@@ -46,6 +46,12 @@ function MenuIcon({ icon }: { icon: MenuIconKey }) {
   );
 }
 
+function enforceBoundaryAtBack(order: number[], boundaryIndex: number | null): number[] {
+  if (boundaryIndex === null || !order.includes(boundaryIndex)) return order;
+  const withoutBoundary = order.filter((i) => i !== boundaryIndex);
+  return [...withoutBoundary, boundaryIndex];
+}
+
 function App() {
   const [activeMenu, setActiveMenu] = useState<MenuKey>("project");
 
@@ -133,6 +139,15 @@ function App() {
     setLayerAttributeTableEnabled((prev) => ({ ...prev, [index]: enabled }));
   }
 
+  function handleBoundaryLayerIndexChange(index: number | null) {
+    setBoundaryLayerIndex(index);
+    setLayerOrder((prev) => enforceBoundaryAtBack(prev, index));
+  }
+
+  function handleLayerOrderChange(newOrder: number[]) {
+    setLayerOrder(enforceBoundaryAtBack(newOrder, boundaryLayerIndex));
+  }
+
   function handleLayerOpacityChange(index: number, opacity: number) {
     setLayerOpacities((prev) => ({ ...prev, [index]: opacity }));
   }
@@ -185,7 +200,7 @@ function App() {
                 onProjectPathChange={setProjectPath}
                 onLayersLoaded={handleLayersLoaded}
                 onSelectedLayerIndexesChange={setSelectedLayerIndexes}
-                onBoundaryLayerIndexChange={setBoundaryLayerIndex}
+                onBoundaryLayerIndexChange={handleBoundaryLayerIndexChange}
               />
               <div className="project-map-layout">
                 <MapView
@@ -232,7 +247,7 @@ function App() {
                   selectedLayerIndexes={selectedLayerIndexes}
                   onSelectedLayerIndexesChange={setSelectedLayerIndexes}
                   boundaryLayerIndex={boundaryLayerIndex}
-                  onBoundaryLayerIndexChange={setBoundaryLayerIndex}
+                  onBoundaryLayerIndexChange={handleBoundaryLayerIndexChange}
                   layerColors={layerColors}
                   onLayerColorChange={handleLayerColorChange}
                   layerCategoryColors={layerCategoryColors}
@@ -242,7 +257,7 @@ function App() {
                   layerAttributeTableEnabled={layerAttributeTableEnabled}
                   onAttributeTableToggle={handleAttributeTableToggle}
                   layerOrder={layerOrder}
-                  onLayerOrderChange={setLayerOrder}
+                  onLayerOrderChange={handleLayerOrderChange}
                   activeLayerIndex={activeLayerIndex}
                   onFocusLayer={setActiveLayerIndex}
                 />
