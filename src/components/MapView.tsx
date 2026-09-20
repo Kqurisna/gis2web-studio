@@ -3,6 +3,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLayerGeojson } from "../lib/layerGeojsonCache";
 import { styleForLayer, resolveFeatureColor, getStrongHighlightStyle, getSubtleHighlightStyle } from "../lib/layerStyle";
+import { booleanPointInPolygon } from "@turf/boolean-point-in-polygon";
+import { point as turfPoint } from "@turf/helpers";
 import type { LayerInfo } from "./ProjectPanel";
 import type { WebGisConfig, BasemapOption, FeatureDisplayMode } from "./ConfigurationPanel";
 
@@ -80,6 +82,12 @@ function MapView({
   const layerRefsRef = useRef<Map<number, L.GeoJSON>>(new Map());
   const layerStyleRef = useRef<Map<number, L.PathOptions | L.StyleFunction>>(new Map());
   const featureLayerRefsRef = useRef<Map<string, L.Layer>>(new Map());
+  const layerGeojsonDataRef = useRef<Map<number, GeoJSON.FeatureCollection>>(new Map());
+  const clickCycleRef = useRef<{
+    point: L.Point | null;
+    matches: { layerIndex: number; featureIndex: number }[];
+    index: number;
+  }>({ point: null, matches: [], index: -1 });
   const layerOrderRef = useRef<number[]>(layerOrder);
   const prevBoundaryLayerIndexRef = useRef<number | null>(null);
   const visibleFieldsRef = useRef<Record<number, string[]>>(visibleFields);
@@ -101,6 +109,98 @@ function MapView({
       layerRefsRef.current.get(idx)?.bringToFront();
     });
   }
+
+  const handleCycleClickRef = useRef<((e: L.LeafletMouseEvent) => void) | null>(null);
+
+  function getVisibleZOrderedFeatureCandidates(latlng: L.LatLng) {
+    const group = dataLayerGroupRef.current;
+    if (!group) return [];
+
+    const pt = turfPoint([latlng.lng, latlng.lat]);
+    const candidates: { layerIndex: number; featureIndex: number; layerInstance: L.Layer }[] = [];
+
+    const orderedLayerIndexes = [...layerOrderRef.current];
+    layerRefsRef.current.forEach((_geoLayer, idx) => {
+      if (!orderedLayerIndexes.includes(idx)) orderedLayerIndexes.push(idx);
+    });
+
+    for (const layerIndex of orderedLayerIndexes) {
+      const geoLayer = layerRefsRef.current.get(layerIndex);
+      if (!geoLayer || !group.hasLayer(geoLayer)) continue;
+
+      const geojsonData = layerGeojsonDataRef.current.get(layerIndex);
+      if (!geojsonData) continue;
+
+      const features = geojsonData.features ?? [];
+      const matchedInLayer: number[] = [];
+
+      features.forEach((feature, featureIndex) => {
+        const geomType = feature.geometry?.type;
+        if (geomType !== "Polygon" && geomType !== "MultiPolygon") return;
+        try {
+          if (booleanPointInPolygon(pt, feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>)) {
+            matchedInLayer.push(featureIndex);
+          }
+        } catch {
+          // geometry tidak valid, skip
+        }
+      });
+
+      matchedInLayer
+        .sort((a, b) => b - a)
+        .forEach((featureIndex) => {
+          const key = `${layerIndex}:${featureIndex}`;
+          const layerInstance = featureLayerRefsRef.current.get(key);
+          if (layerInstance) {
+            candidates.push({ layerIndex, featureIndex, layerInstance });
+          }
+        });
+    }
+
+    return candidates;
+  }
+
+  useEffect(() => {
+    handleCycleClickRef.current = (e: L.LeafletMouseEvent) => {
+      const map = mapRef.current;
+      if (!map) return;
+
+      const candidates = getVisibleZOrderedFeatureCandidates(e.latlng);
+      if (candidates.length === 0) return;
+
+      const clickPoint = map.latLngToContainerPoint(e.latlng);
+      const prev = clickCycleRef.current;
+
+      const sameKeys =
+        prev.matches.length === candidates.length &&
+        prev.matches.every(
+          (m, i) => m.layerIndex === candidates[i].layerIndex && m.featureIndex === candidates[i].featureIndex
+        );
+      const closeToPrev = prev.point ? prev.point.distanceTo(clickPoint) < 15 : false;
+
+      const nextIndex = sameKeys && closeToPrev ? (prev.index + 1) % candidates.length : 0;
+
+      clickCycleRef.current = {
+        point: clickPoint,
+        matches: candidates.map(({ layerIndex, featureIndex }) => ({ layerIndex, featureIndex })),
+        index: nextIndex,
+      };
+
+      const selected = candidates[nextIndex];
+      onFocusFeature(selected.layerIndex, selected.featureIndex);
+
+      const anyLayer = selected.layerInstance as L.Layer & {
+        openPopup?: (latlng?: L.LatLng) => L.Layer;
+        closePopup?: () => L.Layer;
+      };
+
+      if (featureDisplayModeRef.current === "card") {
+        anyLayer.closePopup?.();
+      } else {
+        anyLayer.openPopup?.(e.latlng);
+      }
+    };
+  });
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -157,6 +257,7 @@ function MapView({
       layerRefsRef.current.clear();
       layerStyleRef.current.clear();
       featureLayerRefsRef.current.clear();
+      layerGeojsonDataRef.current.clear();
 
       const errors: string[] = [];
       let boundaryGeoLayer: L.GeoJSON | null = null;
@@ -175,6 +276,7 @@ function MapView({
         try {
           const geojsonText = await fetchLayerGeojson(activeProjectPath, layer.datasource);
           const geojsonData = JSON.parse(geojsonText);
+          layerGeojsonDataRef.current.set(index, geojsonData);
 
           const isBoundary = index === boundaryLayerIndex;
           const layerColor = layerColors[index] ?? (isBoundary ? "#f97316" : "#2563eb");
@@ -232,11 +334,8 @@ function MapView({
 
               if (featureIndex !== -1) {
                 featureLayerRefsRef.current.set(`${index}:${featureIndex}`, layerInstance);
-                layerInstance.on("click", () => {
-                  onFocusFeature(index, featureIndex);
-                  if (featureDisplayModeRef.current === "card") {
-                    layerInstance.closePopup();
-                  }
+                layerInstance.on("click", (e: L.LeafletMouseEvent) => {
+                  handleCycleClickRef.current?.(e);
                 });
               }
             },
