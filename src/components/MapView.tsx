@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLayerGeojson } from "../lib/layerGeojsonCache";
-import { styleForLayer, resolveFeatureColor, getStrongHighlightStyle, getSubtleHighlightStyle } from "../lib/layerStyle";
+import { styleForLayer, resolveFeatureColor, getStrongHighlightStyle, getSubtleHighlightStyle, getPreviewHighlightStyle } from "../lib/layerStyle";
 import { booleanPointInPolygon } from "@turf/boolean-point-in-polygon";
 import { point as turfPoint } from "@turf/helpers";
 import { pointToLineDistance } from "@turf/point-to-line-distance";
@@ -51,6 +51,9 @@ const BASEMAP_TILE_CONFIG: Record<BasemapOption, BasemapTileDef> = {
   },
 };
 
+const BASE_POINT_RADIUS = 5;
+const HOVER_POINT_RADIUS = 9;
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -90,10 +93,16 @@ function MapView({
     matches: { layerIndex: number; featureIndex: number }[];
     index: number;
   }>({ point: null, matches: [], index: -1 });
+  const hoveredKeyRef = useRef<string | null>(null);
+  const activeFeatureRef = useRef<{ layerIndex: number; featureIndex: number } | null>(activeFeature);
   const layerOrderRef = useRef<number[]>(layerOrder);
   const prevBoundaryLayerIndexRef = useRef<number | null>(null);
   const visibleFieldsRef = useRef<Record<number, string[]>>(visibleFields);
   const featureDisplayModeRef = useRef<FeatureDisplayMode>(featureDisplayMode);
+
+  useEffect(() => {
+    activeFeatureRef.current = activeFeature;
+  }, [activeFeature]);
 
   useEffect(() => {
     visibleFieldsRef.current = visibleFields;
@@ -110,11 +119,40 @@ function MapView({
     [...order].reverse().forEach((idx) => {
       layerRefsRef.current.get(idx)?.bringToFront();
     });
+    bringPointFeaturesToFront();
+  }
+
+  // Point/MultiPoint harus selalu tampak di atas Polygon/Buffer secara visual
+  // (murni z-order, tidak menyentuh style/data), supaya tetap mudah di-hover
+  // dan diklik walau berada di dalam buffer.
+  function bringPointFeaturesToFront() {
+    featureLayerRefsRef.current.forEach((layerInstance, key) => {
+      const [layerIndexStr, featureIndexStr] = key.split(":");
+      const layerIndex = Number(layerIndexStr);
+      const featureIndex = Number(featureIndexStr);
+
+      const geojsonData = layerGeojsonDataRef.current.get(layerIndex);
+      const geomType = geojsonData?.features[featureIndex]?.geometry?.type;
+      if (geomType !== "Point" && geomType !== "MultiPoint") return;
+
+      const anyLayer = layerInstance as L.Layer & { bringToFront?: () => L.Layer };
+      anyLayer.bringToFront?.();
+    });
   }
 
   const handleCycleClickRef = useRef<((e: L.LeafletMouseEvent) => void) | null>(null);
 
   const NEAREST_FEATURE_PIXEL_TOLERANCE = 12;
+
+  // Prioritas tipe geometry saat beberapa feature ada di lokasi klik/hover
+  // yang sama: Point/MultiPoint dulu, lalu Line, baru Polygon/Buffer paling
+  // akhir. Angka lebih kecil = prioritas lebih tinggi.
+  function geometryPriority(geomType: string | undefined): number {
+    if (geomType === "Point" || geomType === "MultiPoint") return 0;
+    if (geomType === "LineString" || geomType === "MultiLineString") return 1;
+    if (geomType === "Polygon" || geomType === "MultiPolygon") return 2;
+    return 3;
+  }
 
   function getVisibleZOrderedFeatureCandidates(latlng: L.LatLng) {
     const group = dataLayerGroupRef.current;
@@ -122,17 +160,23 @@ function MapView({
     if (!group || !map) return [];
 
     const pt = turfPoint([latlng.lng, latlng.lat]);
-    const candidates: { layerIndex: number; featureIndex: number; layerInstance: L.Layer }[] = [];
-    // Dipakai untuk fallback nearest-feature: jarak (meter) tiap kandidat ke titik klik.
+    const candidates: {
+      layerIndex: number;
+      featureIndex: number;
+      layerInstance: L.Layer;
+      geomType: string | undefined;
+    }[] = [];
+    // Dipakai untuk fallback nearest-feature: jarak (meter) tiap kandidat ke titik klik/hover.
     const nearestByDistance: {
       layerIndex: number;
       featureIndex: number;
       layerInstance: L.Layer;
+      geomType: string | undefined;
       distanceMeters: number;
     }[] = [];
 
-    // Toleransi klik dalam meter, dihitung dari toleransi piksel layar pada
-    // zoom saat ini, supaya konsisten secara visual di semua level zoom.
+    // Toleransi klik/hover dalam meter, dihitung dari toleransi piksel layar
+    // pada zoom saat ini, supaya konsisten secara visual di semua level zoom.
     const clickPoint = map.latLngToContainerPoint(latlng);
     const toleranceProbePoint = L.point(clickPoint.x + NEAREST_FEATURE_PIXEL_TOLERANCE, clickPoint.y);
     const toleranceLatLng = map.containerPointToLatLng(toleranceProbePoint);
@@ -155,6 +199,55 @@ function MapView({
 
       features.forEach((feature, featureIndex) => {
         const geomType = feature.geometry?.type;
+
+        if (geomType === "Point" || geomType === "MultiPoint") {
+          const coordsList =
+            geomType === "Point"
+              ? [(feature.geometry as GeoJSON.Point).coordinates]
+              : (feature.geometry as GeoJSON.MultiPoint).coordinates;
+
+          for (const [lng, lat] of coordsList) {
+            const distanceMeters = latlng.distanceTo(L.latLng(lat, lng));
+            if (distanceMeters <= toleranceMeters) {
+              const key = `${layerIndex}:${featureIndex}`;
+              const layerInstance = featureLayerRefsRef.current.get(key);
+              if (layerInstance) {
+                nearestByDistance.push({ layerIndex, featureIndex, layerInstance, geomType, distanceMeters });
+              }
+              break;
+            }
+          }
+          return;
+        }
+
+        if (geomType === "LineString" || geomType === "MultiLineString") {
+          try {
+            const lineFeatures =
+              geomType === "MultiLineString"
+                ? (feature.geometry as GeoJSON.MultiLineString).coordinates.map((coords) => ({
+                    type: "Feature" as const,
+                    properties: {},
+                    geometry: { type: "LineString" as const, coordinates: coords },
+                  }))
+                : [feature as GeoJSON.Feature<GeoJSON.LineString>];
+
+            for (const line of lineFeatures) {
+              const distanceMeters = pointToLineDistance(pt, line, { units: "meters" });
+              if (distanceMeters <= toleranceMeters) {
+                const key = `${layerIndex}:${featureIndex}`;
+                const layerInstance = featureLayerRefsRef.current.get(key);
+                if (layerInstance) {
+                  nearestByDistance.push({ layerIndex, featureIndex, layerInstance, geomType, distanceMeters });
+                }
+                break;
+              }
+            }
+          } catch {
+            // geometry tidak valid, skip
+          }
+          return;
+        }
+
         if (geomType !== "Polygon" && geomType !== "MultiPolygon") return;
         const typedFeature = feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
 
@@ -198,7 +291,7 @@ function MapView({
               const key = `${layerIndex}:${featureIndex}`;
               const layerInstance = featureLayerRefsRef.current.get(key);
               if (layerInstance) {
-                nearestByDistance.push({ layerIndex, featureIndex, layerInstance, distanceMeters });
+                nearestByDistance.push({ layerIndex, featureIndex, layerInstance, geomType, distanceMeters });
               }
               break;
             }
@@ -214,24 +307,41 @@ function MapView({
           const key = `${layerIndex}:${featureIndex}`;
           const layerInstance = featureLayerRefsRef.current.get(key);
           if (layerInstance) {
-            candidates.push({ layerIndex, featureIndex, layerInstance });
+            const geomType = geojsonData.features[featureIndex]?.geometry?.type;
+            candidates.push({ layerIndex, featureIndex, layerInstance, geomType });
           }
         });
     }
 
-    // Exact hit selalu diprioritaskan. Fallback nearest-feature hanya dipakai
-    // kalau tidak ada exact hit sama sekali di titik klik, diurutkan dari
-    // yang paling dekat ke titik klik.
-    if (candidates.length === 0 && nearestByDistance.length > 0) {
-      nearestByDistance.sort((a, b) => a.distanceMeters - b.distanceMeters);
-      return nearestByDistance.map(({ layerIndex, featureIndex, layerInstance }) => ({
+    function sortByPriority<T extends { geomType: string | undefined }>(list: T[]): T[] {
+      return [...list].sort((a, b) => geometryPriority(a.geomType) - geometryPriority(b.geomType));
+    }
+
+    // Prioritas geometry type (Point > Line > Polygon) selalu didahulukan,
+    // sebelum urutan layer/feature. Exact hit polygon tetap diprioritaskan
+    // di atas fallback nearest-feature dalam tipe yang sama.
+    if (candidates.length > 0) {
+      return sortByPriority(candidates).map(({ layerIndex, featureIndex, layerInstance }) => ({
         layerIndex,
         featureIndex,
         layerInstance,
       }));
     }
 
-    return candidates;
+    if (nearestByDistance.length > 0) {
+      const sorted = [...nearestByDistance].sort((a, b) => {
+        const priorityDiff = geometryPriority(a.geomType) - geometryPriority(b.geomType);
+        if (priorityDiff !== 0) return priorityDiff;
+        return a.distanceMeters - b.distanceMeters;
+      });
+      return sorted.map(({ layerIndex, featureIndex, layerInstance }) => ({
+        layerIndex,
+        featureIndex,
+        layerInstance,
+      }));
+    }
+
+    return [];
   }
 
   useEffect(() => {
@@ -304,7 +414,121 @@ function MapView({
     };
     containerEl.addEventListener("dblclick", preventNativeDblZoom, { capture: true });
 
+    // ---- Smart Hover / hover preview ----
+    // State hover 100% lokal ke MapView, TIDAK pernah memanggil onFocusFeature
+    // atau membuka popup. Tidak berhubungan dengan activeFeature/Feature
+    // Information sama sekali. Reuse hit-test yang sama dengan klik supaya
+    // prioritas Point > Line > Polygon konsisten antara preview dan seleksi.
+    let hoverRafId: number | null = null;
+
+    const clearHoverPreview = () => {
+      const key = hoveredKeyRef.current;
+      if (!key) return;
+      hoveredKeyRef.current = null;
+
+      const [layerIndexStr] = key.split(":");
+      const layerIndex = Number(layerIndexStr);
+      const layerInstance = featureLayerRefsRef.current.get(key);
+      if (!layerInstance) return;
+
+      const anyLayer = layerInstance as L.Path & {
+        feature?: GeoJSON.Feature;
+        setRadius?: (radius: number) => L.Layer;
+      };
+
+      const geojsonData = layerGeojsonDataRef.current.get(layerIndex);
+      const featureIndex = Number(key.split(":")[1]);
+      const geomType = geojsonData?.features[featureIndex]?.geometry?.type;
+
+      if ((geomType === "Point" || geomType === "MultiPoint") && typeof anyLayer.setRadius === "function") {
+        anyLayer.setRadius(BASE_POINT_RADIUS);
+      }
+
+      // Jangan timpa style kalau feature ini sedang jadi seleksi aktif;
+      // biarkan efek highlight seleksi yang mengatur stylenya sendiri.
+      const isActiveSelected =
+        activeFeatureRef.current &&
+        `${activeFeatureRef.current.layerIndex}:${activeFeatureRef.current.featureIndex}` === key;
+      if (isActiveSelected) return;
+
+      const styleFnOrObj = layerStyleRef.current.get(layerIndex);
+      if (!styleFnOrObj || typeof anyLayer.setStyle !== "function") return;
+      const baseStyle =
+        typeof styleFnOrObj === "function"
+          ? styleFnOrObj(anyLayer.feature as GeoJSON.Feature)
+          : styleFnOrObj;
+      if (baseStyle) anyLayer.setStyle(baseStyle);
+    };
+
+    const applyHoverPreview = (newKey: string | null) => {
+      if (newKey === hoveredKeyRef.current) return;
+
+      clearHoverPreview();
+      if (!newKey) return;
+
+      const layerInstance = featureLayerRefsRef.current.get(newKey);
+      if (!layerInstance) return;
+
+      const [layerIndexStr, featureIndexStr] = newKey.split(":");
+      const layerIndex = Number(layerIndexStr);
+      const featureIndex = Number(featureIndexStr);
+      const geojsonData = layerGeojsonDataRef.current.get(layerIndex);
+      const geomType = geojsonData?.features[featureIndex]?.geometry?.type;
+
+      const anyLayer = layerInstance as L.Path & {
+        feature?: GeoJSON.Feature;
+        setRadius?: (radius: number) => L.Layer;
+      };
+
+      const styleFnOrObj = layerStyleRef.current.get(layerIndex);
+      const baseStyle =
+        styleFnOrObj && typeof styleFnOrObj === "function"
+          ? styleFnOrObj(anyLayer.feature as GeoJSON.Feature)
+          : (styleFnOrObj as L.PathOptions | undefined);
+
+      // Kalau feature ini sedang seleksi aktif, jangan timpa strong highlight
+      // seleksi dengan preview style — cukup tandai sudah "di-hover" saja.
+      const isActiveSelected =
+        activeFeatureRef.current &&
+        `${activeFeatureRef.current.layerIndex}:${activeFeatureRef.current.featureIndex}` === newKey;
+
+      if (geomType === "Point" || geomType === "MultiPoint") {
+        anyLayer.setRadius?.(HOVER_POINT_RADIUS);
+      }
+
+      if (!isActiveSelected && baseStyle && typeof anyLayer.setStyle === "function") {
+        anyLayer.setStyle(getPreviewHighlightStyle(baseStyle));
+      }
+
+      hoveredKeyRef.current = newKey;
+    };
+
+    const handleMapMouseMove = (e: L.LeafletMouseEvent) => {
+      if (hoverRafId !== null) return;
+      hoverRafId = window.requestAnimationFrame(() => {
+        hoverRafId = null;
+        const candidates = getVisibleZOrderedFeatureCandidates(e.latlng);
+        const top = candidates[0];
+        const newKey = top ? `${top.layerIndex}:${top.featureIndex}` : null;
+        applyHoverPreview(newKey);
+      });
+    };
+
+    const handleMapMouseOut = () => {
+      if (hoverRafId !== null) {
+        window.cancelAnimationFrame(hoverRafId);
+        hoverRafId = null;
+      }
+      clearHoverPreview();
+    };
+
+    map.on("mousemove", handleMapMouseMove);
+    map.on("mouseout", handleMapMouseOut);
+
     return () => {
+      if (hoverRafId !== null) window.cancelAnimationFrame(hoverRafId);
+      map.off("mousemove", handleMapMouseMove);
+      map.off("mouseout", handleMapMouseOut);
       containerEl.removeEventListener("dblclick", preventNativeDblZoom, { capture: true } as EventListenerOptions);
       map.remove();
       mapRef.current = null;
@@ -390,7 +614,7 @@ function MapView({
                 ? resolveFeatureColor(layer, categoryOverrides, feature, layerColor)
                 : layerColor;
               return L.circleMarker(latlng, {
-                radius: 5,
+                radius: BASE_POINT_RADIUS,
                 color: resolvedColor,
                 fillOpacity: layerOpacity,
               });

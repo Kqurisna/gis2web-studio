@@ -49,3 +49,16 @@ export function getSubtleHighlightStyle(base: L.PathOptions): L.PathOptions {
     fillOpacity: Math.min((base.fillOpacity ?? 0.35) + 0.1, 0.7),
   };
 }
+
+// Preview hover: visual sementara yang berbeda dari highlight seleksi
+// (getStrongHighlightStyle/getSubtleHighlightStyle), supaya user bisa
+// membedakan "sedang di-hover" vs "sudah dipilih/diklik".
+export function getPreviewHighlightStyle(base: L.PathOptions): L.PathOptions {
+  return {
+    ...base,
+    weight: (base.weight ?? 1.5) + 2,
+    color: "#3b82f6",
+    dashArray: "4 3",
+    fillOpacity: Math.min((base.fillOpacity ?? 0.35) + 0.1, 0.65),
+  };
+}
