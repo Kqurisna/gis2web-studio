@@ -19,6 +19,7 @@ interface MapViewProps {
   layerColors: Record<number, string>;
   layerCategoryColors: Record<number, Record<string, string>>;
   layerOpacities: Record<number, number>;
+  layerPointSizes: Record<number, number>;
   layerOrder: number[];
   activeLayerIndex: number | null;
   onFocusLayer: (index: number) => void;
@@ -52,7 +53,7 @@ const BASEMAP_TILE_CONFIG: Record<BasemapOption, BasemapTileDef> = {
 };
 
 const BASE_POINT_RADIUS = 5;
-const HOVER_POINT_RADIUS = 9;
+const HOVER_POINT_RADIUS_EXTRA = 4;
 
 function escapeHtml(value: string): string {
   return value
@@ -72,6 +73,7 @@ function MapView({
   layerColors,
   layerCategoryColors,
   layerOpacities,
+  layerPointSizes,
   layerOrder,
   activeLayerIndex,
   onFocusLayer,
@@ -93,6 +95,7 @@ function MapView({
     matches: { layerIndex: number; featureIndex: number }[];
     index: number;
   }>({ point: null, matches: [], index: -1 });
+  const layerPointSizesRef = useRef<Record<number, number>>(layerPointSizes);
   const hoveredKeyRef = useRef<string | null>(null);
   const activeFeatureRef = useRef<{ layerIndex: number; featureIndex: number } | null>(activeFeature);
   const layerOrderRef = useRef<number[]>(layerOrder);
@@ -103,6 +106,10 @@ function MapView({
   useEffect(() => {
     activeFeatureRef.current = activeFeature;
   }, [activeFeature]);
+
+  useEffect(() => {
+    layerPointSizesRef.current = layerPointSizes;
+  }, [layerPointSizes]);
 
   useEffect(() => {
     visibleFieldsRef.current = visibleFields;
@@ -142,7 +149,7 @@ function MapView({
 
   const handleCycleClickRef = useRef<((e: L.LeafletMouseEvent) => void) | null>(null);
 
-  const NEAREST_FEATURE_PIXEL_TOLERANCE = 12;
+  const NEAREST_FEATURE_PIXEL_TOLERANCE = 18;
 
   // Prioritas tipe geometry saat beberapa feature ada di lokasi klik/hover
   // yang sama: Point/MultiPoint dulu, lalu Line, baru Polygon/Buffer paling
@@ -313,35 +320,38 @@ function MapView({
         });
     }
 
-    function sortByPriority<T extends { geomType: string | undefined }>(list: T[]): T[] {
-      return [...list].sort((a, b) => geometryPriority(a.geomType) - geometryPriority(b.geomType));
-    }
+    // PENTING: exact hit (candidates, biasanya Polygon) dan fallback jarak
+    // (nearestByDistance, tempat Point/Line masuk) HARUS digabung sebelum
+    // sorting priority. Kalau tidak, Point yang berada di dalam Buffer
+    // (exact hit Polygon selalu true) tidak akan pernah dibandingkan dengan
+    // Point sama sekali, karena dulu exact-hit langsung di-return duluan
+    // tanpa mempertimbangkan nearestByDistance.
+    type MergedCandidate = {
+      layerIndex: number;
+      featureIndex: number;
+      layerInstance: L.Layer;
+      geomType: string | undefined;
+      distanceMeters: number;
+    };
 
-    // Prioritas geometry type (Point > Line > Polygon) selalu didahulukan,
-    // sebelum urutan layer/feature. Exact hit polygon tetap diprioritaskan
-    // di atas fallback nearest-feature dalam tipe yang sama.
-    if (candidates.length > 0) {
-      return sortByPriority(candidates).map(({ layerIndex, featureIndex, layerInstance }) => ({
-        layerIndex,
-        featureIndex,
-        layerInstance,
-      }));
-    }
+    const merged: MergedCandidate[] = [
+      ...candidates.map((c) => ({ ...c, distanceMeters: 0 })),
+      ...nearestByDistance,
+    ];
 
-    if (nearestByDistance.length > 0) {
-      const sorted = [...nearestByDistance].sort((a, b) => {
-        const priorityDiff = geometryPriority(a.geomType) - geometryPriority(b.geomType);
-        if (priorityDiff !== 0) return priorityDiff;
-        return a.distanceMeters - b.distanceMeters;
-      });
-      return sorted.map(({ layerIndex, featureIndex, layerInstance }) => ({
-        layerIndex,
-        featureIndex,
-        layerInstance,
-      }));
-    }
+    if (merged.length === 0) return [];
 
-    return [];
+    merged.sort((a, b) => {
+      const priorityDiff = geometryPriority(a.geomType) - geometryPriority(b.geomType);
+      if (priorityDiff !== 0) return priorityDiff;
+      return a.distanceMeters - b.distanceMeters;
+    });
+
+    return merged.map(({ layerIndex, featureIndex, layerInstance }) => ({
+      layerIndex,
+      featureIndex,
+      layerInstance,
+    }));
   }
 
   useEffect(() => {
@@ -441,7 +451,7 @@ function MapView({
       const geomType = geojsonData?.features[featureIndex]?.geometry?.type;
 
       if ((geomType === "Point" || geomType === "MultiPoint") && typeof anyLayer.setRadius === "function") {
-        anyLayer.setRadius(BASE_POINT_RADIUS);
+        anyLayer.setRadius(layerPointSizesRef.current[layerIndex] ?? BASE_POINT_RADIUS);
       }
 
       // Jangan timpa style kalau feature ini sedang jadi seleksi aktif;
@@ -493,7 +503,8 @@ function MapView({
         `${activeFeatureRef.current.layerIndex}:${activeFeatureRef.current.featureIndex}` === newKey;
 
       if (geomType === "Point" || geomType === "MultiPoint") {
-        anyLayer.setRadius?.(HOVER_POINT_RADIUS);
+        const currentBaseRadius = layerPointSizesRef.current[layerIndex] ?? BASE_POINT_RADIUS;
+        anyLayer.setRadius?.(currentBaseRadius + HOVER_POINT_RADIUS_EXTRA);
       }
 
       if (!isActiveSelected && baseStyle && typeof anyLayer.setStyle === "function") {
@@ -614,7 +625,7 @@ function MapView({
                 ? resolveFeatureColor(layer, categoryOverrides, feature, layerColor)
                 : layerColor;
               return L.circleMarker(latlng, {
-                radius: BASE_POINT_RADIUS,
+                radius: layerPointSizes[index] ?? BASE_POINT_RADIUS,
                 color: resolvedColor,
                 fillOpacity: layerOpacity,
               });

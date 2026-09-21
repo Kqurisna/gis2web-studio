@@ -63,6 +63,7 @@ function App() {
   const [layerCategoryColors, setLayerCategoryColors] = useState<Record<number, Record<string, string>>>({});
   const [layerAttributeTableEnabled, setLayerAttributeTableEnabled] = useState<Record<number, boolean>>({});
   const [layerOpacities, setLayerOpacities] = useState<Record<number, number>>({});
+  const [layerPointSizes, setLayerPointSizes] = useState<Record<number, number>>({});
   const [layerOrder, setLayerOrder] = useState<number[]>([]);
   const [activeLayerIndex, setActiveLayerIndex] = useState<number | null>(null);
   const [activeFeature, setActiveFeature] = useState<
@@ -152,6 +153,10 @@ function App() {
     setLayerOpacities((prev) => ({ ...prev, [index]: opacity }));
   }
 
+  function handleLayerPointSizeChange(index: number, size: number) {
+    setLayerPointSizes((prev) => ({ ...prev, [index]: size }));
+  }
+
   function handleFocusFeature(layerIndex: number, featureIndex: number) {
     setActiveFeature({ layerIndex, featureIndex });
   }
@@ -212,6 +217,7 @@ function App() {
                   layerColors={layerColors}
                   layerCategoryColors={layerCategoryColors}
                   layerOpacities={layerOpacities}
+                  layerPointSizes={layerPointSizes}
                   layerOrder={layerOrder}
                   activeLayerIndex={activeLayerIndex}
                   onFocusLayer={setActiveLayerIndex}
@@ -254,6 +260,8 @@ function App() {
                   onLayerCategoryColorChange={handleLayerCategoryColorChange}
                   layerOpacities={layerOpacities}
                   onLayerOpacityChange={handleLayerOpacityChange}
+                  layerPointSizes={layerPointSizes}
+                  onLayerPointSizeChange={handleLayerPointSizeChange}
                   layerAttributeTableEnabled={layerAttributeTableEnabled}
                   onAttributeTableToggle={handleAttributeTableToggle}
                   layerOrder={layerOrder}

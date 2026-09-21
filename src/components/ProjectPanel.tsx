@@ -30,6 +30,8 @@ interface ProjectPanelProps {
   onLayerCategoryColorChange: (index: number, categoryValue: string, color: string) => void;
   layerOpacities: Record<number, number>;
   onLayerOpacityChange: (index: number, opacity: number) => void;
+  layerPointSizes: Record<number, number>;
+  onLayerPointSizeChange: (index: number, size: number) => void;
   layerAttributeTableEnabled: Record<number, boolean>;
   onAttributeTableToggle: (index: number, enabled: boolean) => void;
   layerOrder: number[];
@@ -54,6 +56,8 @@ function ProjectPanel({
   onLayerCategoryColorChange,
   layerOpacities,
   onLayerOpacityChange,
+  layerPointSizes,
+  onLayerPointSizeChange,
   layerAttributeTableEnabled,
   onAttributeTableToggle,
   layerOrder,
@@ -290,6 +294,7 @@ function ProjectPanel({
                           <th>Nama Layer</th>
                           <th>Warna</th>
                           <th>Opacity</th>
+                          <th>Ukuran Point</th>
                           <th>Attribute Table</th>
                         </tr>
                       </thead>
@@ -298,8 +303,10 @@ function ProjectPanel({
                           const layer = layers[index];
                           if (!layer) return null;
                           const isPolygon = layer.geometry_type === "Polygon";
+                          const isPointLayer = layer.geometry_type === "Point";
                           const color = layerColors[index] ?? "#2563eb";
                           const opacity = layerOpacities[index] ?? (isPolygon ? 0.35 : 0.7);
+                          const pointSize = layerPointSizes[index] ?? 5;
                           const isActive = activeLayerIndex === index;
                           const isBoundary = boundaryLayerIndex === index;
                           return (
@@ -355,6 +362,26 @@ function ProjectPanel({
                                 <span className="opacity-value">
                                   {Math.round(opacity * 100)}%
                                 </span>
+                              </td>
+                              <td onClick={(e) => e.stopPropagation()} className="opacity-cell">
+                                {isPointLayer ? (
+                                  <>
+                                    <input
+                                      type="range"
+                                      min={2}
+                                      max={20}
+                                      step={1}
+                                      value={pointSize}
+                                      onChange={(e) =>
+                                        onLayerPointSizeChange(index, Number(e.target.value))
+                                      }
+                                      title="Atur ukuran point layer"
+                                    />
+                                    <span className="opacity-value">{pointSize}px</span>
+                                  </>
+                                ) : (
+                                  <span className="layer-note">-</span>
+                                )}
                               </td>
                               <td onClick={(e) => e.stopPropagation()}>
                                 <label className="attribute-table-toggle">
