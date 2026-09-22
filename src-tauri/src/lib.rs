@@ -705,6 +705,18 @@ fn build_index_html() -> String {
 </head>
 <body>
 <div id="map"></div>
+<div id="feature-info-card" class="feature-info-card" hidden>
+  <div class="feature-info-card-header">
+    <div class="feature-info-card-header-text">
+      <div id="feature-info-card-title" class="feature-info-card-title"></div>
+      <div id="feature-info-card-subtitle" class="feature-info-card-subtitle"></div>
+    </div>
+    <button type="button" id="feature-info-card-close" class="feature-info-card-close">&times;</button>
+  </div>
+  <div class="feature-info-card-body">
+    <table id="feature-info-card-table" class="feature-info-card-table"></table>
+  </div>
+</div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="js/app.js"></script>
 </body>
@@ -719,6 +731,162 @@ fn build_style_css() -> String {
   margin: 0;
   padding: 0;
 }
+
+.feature-info-card {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1100;
+  width: 300px;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100% - 2rem);
+  background: #ffffff;
+  border: 1px solid #e7e7ee;
+  border-radius: 18px;
+  box-shadow: 0 12px 36px rgba(16, 16, 30, 0.16);
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, "Inter", Helvetica, Arial, sans-serif;
+  overflow: hidden;
+}
+
+.feature-info-card[hidden] {
+  display: none;
+}
+
+.feature-info-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.85rem 0.9rem 0.7rem;
+  border-bottom: 1px solid #e7e7ee;
+  flex-shrink: 0;
+}
+
+.feature-info-card-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.feature-info-card-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.feature-info-card-subtitle {
+  font-size: 0.75rem;
+  color: #71717a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feature-info-card-close {
+  background: #fafafa;
+  border: 1px solid #e7e7ee;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  color: #71717a;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.feature-info-card-close:hover {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.feature-info-card-body {
+  overflow-y: auto;
+  padding: 0.4rem 0.9rem 0.9rem;
+}
+
+.feature-info-card-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.82rem;
+}
+
+.feature-info-card-table th,
+.feature-info-card-table td {
+  text-align: left;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #e7e7ee;
+  vertical-align: top;
+}
+
+.feature-info-card-table tr:last-child th,
+.feature-info-card-table tr:last-child td {
+  border-bottom: none;
+}
+
+.feature-info-card-table th {
+  color: #a1a1aa;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  width: 42%;
+  padding-right: 0.6rem;
+}
+
+.feature-info-card-table td {
+  color: #18181b;
+  word-break: break-word;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  padding: 0;
+}
+
+.leaflet-popup-content {
+  margin: 0;
+}
+
+.feature-popup {
+  padding: 0.5rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.feature-popup-table {
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.feature-popup-table th,
+.feature-popup-table td {
+  text-align: left;
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid #e7e7ee;
+  vertical-align: top;
+}
+
+.feature-popup-table tr:last-child th,
+.feature-popup-table tr:last-child td {
+  border-bottom: none;
+}
+
+.feature-popup-table th {
+  color: #a1a1aa;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.feature-popup-table td {
+  color: #18181b;
+  word-break: break-word;
+}
 "#.to_string()
 }
 
@@ -726,7 +894,8 @@ fn build_app_js(config_json: &str) -> String {
     format!(
         r#"const CONFIG = {config_json};
 
-const map = L.map('map');
+const map = L.map('map', {{ zoomControl: false }});
+L.control.zoom({{ position: 'bottomright' }}).addTo(map);
 
 L.tileLayer(CONFIG.basemap.url, {{
   attribution: CONFIG.basemap.attribution,
@@ -734,21 +903,116 @@ L.tileLayer(CONFIG.basemap.url, {{
   maxZoom: CONFIG.maxZoom,
 }}).addTo(map);
 
+function escapeHtml(value) {{
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}}
+
+// Warna final feature: kalau layer punya kategori (categoryField diisi saat
+// konfigurasi di GIS2Web Studio), pakai warna per-kategori; kalau tidak,
+// pakai warna solid layer. Ini nilai FINAL, tidak ada UI untuk mengubahnya
+// di hasil export.
+function resolveFeatureColor(layer, feature) {{
+  if (!layer.categoryField || !layer.categories || layer.categories.length === 0) {{
+    return layer.color;
+  }}
+  const raw = feature && feature.properties ? feature.properties[layer.categoryField] : undefined;
+  const valueKey = raw === null || raw === undefined ? 'NULL' : String(raw);
+  const match = layer.categories.find((c) => c.value === valueKey);
+  return match ? match.color : layer.color;
+}}
+
+function buildFieldsTable(properties, visibleFields) {{
+  if (!properties || Object.keys(properties).length === 0) return null;
+  const allKeys = Object.keys(properties);
+  const fieldsToShow = visibleFields && visibleFields.length > 0
+    ? visibleFields.filter((f) => allKeys.includes(f))
+    : allKeys;
+  if (fieldsToShow.length === 0) return null;
+
+  return fieldsToShow.map((key) => {{
+    const value = properties[key];
+    return {{ key, value: value === null || value === undefined ? '-' : String(value) }};
+  }});
+}}
+
+function buildPopupHtml(rows) {{
+  if (!rows) {{
+    return '<div class="feature-popup"><p>Tidak ada atribut untuk ditampilkan.</p></div>';
+  }}
+  const trs = rows
+    .map((r) => `<tr><th>$${{escapeHtml(r.key)}}</th><td>$${{escapeHtml(r.value)}}</td></tr>`)
+    .join('');
+  return `<div class="feature-popup"><table class="feature-popup-table">$${{trs}}</table></div>`;
+}}
+
+// ---- Feature Information card (mode 'card' / 'both') ----
+const cardEl = document.getElementById('feature-info-card');
+const cardTitleEl = document.getElementById('feature-info-card-title');
+const cardSubtitleEl = document.getElementById('feature-info-card-subtitle');
+const cardTableEl = document.getElementById('feature-info-card-table');
+const cardCloseBtn = document.getElementById('feature-info-card-close');
+
+function showFeatureCard(layerName, rows) {{
+  cardTitleEl.textContent = 'Feature Information';
+  cardSubtitleEl.textContent = layerName;
+  cardTableEl.innerHTML = rows
+    ? rows.map((r) => `<tr><th>$${{escapeHtml(r.key)}}</th><td>$${{escapeHtml(r.value)}}</td></tr>`).join('')
+    : '<tr><td>Tidak ada atribut.</td></tr>';
+  cardEl.hidden = false;
+}}
+
+function hideFeatureCard() {{
+  cardEl.hidden = true;
+}}
+
+cardCloseBtn.addEventListener('click', hideFeatureCard);
+
+const layerRefs = {{}};
 let boundaryFitted = false;
 
-CONFIG.layers.forEach((layer) => {{
-  fetch(layer.file)
+function loadLayer(layer) {{
+  return fetch(layer.file)
     .then((res) => res.json())
     .then((geojson) => {{
+      const isPointGeometry = layer.geometryType === 'Point';
+
       const gLayer = L.geoJSON(geojson, {{
-        style: {{
-          color: layer.color,
-          weight: 2,
+        style: (feature) => ({{
+          color: resolveFeatureColor(layer, feature),
+          weight: layer.isBoundary ? 2 : 1.5,
           fillOpacity: layer.isBoundary ? 0 : layer.opacity,
-        }},
+        }}),
         pointToLayer: (feature, latlng) =>
-          L.circleMarker(latlng, {{ radius: 5, color: layer.color, fillOpacity: layer.opacity }}),
+          L.circleMarker(latlng, {{
+            radius: layer.pointSize || 5,
+            color: resolveFeatureColor(layer, feature),
+            fillOpacity: layer.opacity,
+          }}),
+        onEachFeature: (feature, layerInstance) => {{
+          const properties = feature.properties || null;
+          const rows = buildFieldsTable(properties, layer.visibleFields);
+
+          if (properties && Object.keys(properties).length > 0) {{
+            layerInstance.bindPopup(() => buildPopupHtml(rows), {{ autoPan: false }});
+          }}
+
+          layerInstance.on('click', () => {{
+            if (CONFIG.featureDisplayMode === 'card') {{
+              layerInstance.closePopup();
+            }}
+            if (CONFIG.featureDisplayMode !== 'popup') {{
+              showFeatureCard(layer.name, rows);
+            }}
+          }});
+        }},
       }}).addTo(map);
+
+      layerRefs[layer.layerIndex] = gLayer;
 
       if (layer.isBoundary) {{
         map.fitBounds(gLayer.getBounds());
@@ -758,6 +1022,19 @@ CONFIG.layers.forEach((layer) => {{
       }}
     }})
     .catch((err) => console.error('Gagal memuat layer:', layer.file, err));
+}}
+
+Promise.all(CONFIG.layers.map(loadLayer)).then(() => {{
+  // Urutan stacking final: CONFIG.layers[0] adalah layer paling atas (sesuai
+  // urutan yang sudah diatur user di GIS2Web Studio / layerOrder). Sama
+  // seperti applyStackingOrder di aplikasi: reverse dulu, lalu bringToFront
+  // satu-satu, supaya elemen pertama di array yang menang paling atas.
+  [...CONFIG.layers].reverse().forEach((layer) => {{
+    const gLayer = layerRefs[layer.layerIndex];
+    if (gLayer && typeof gLayer.bringToFront === 'function') {{
+      gLayer.bringToFront();
+    }}
+  }});
 }});
 "#
     )
@@ -798,11 +1075,23 @@ fn export_web_gis(
         std::fs::write(data_dir.join(&file_name), geojson_content)
             .map_err(|e| format!("Gagal menulis {file_name}: {e}"))?;
 
+        let categories_json = layer.categories.as_ref().map(|cats| {
+            cats.iter()
+                .map(|c| serde_json::json!({ "value": c.value, "color": c.color }))
+                .collect::<Vec<_>>()
+        });
+
         layer_entries.push(serde_json::json!({
+            "layerIndex": layer.layer_index,
             "file": format!("data/{file_name}"),
             "name": layer.name,
+            "geometryType": layer.geometry_type,
             "color": layer.color,
             "opacity": layer.opacity,
+            "pointSize": layer.point_size,
+            "categoryField": layer.category_field,
+            "categories": categories_json,
+            "visibleFields": layer.visible_fields,
             "isBoundary": layer.is_boundary,
             "showAttributeTable": layer.show_attribute_table,
         }));
@@ -816,6 +1105,7 @@ fn export_web_gis(
         },
         "minZoom": config.min_zoom,
         "maxZoom": config.max_zoom,
+        "featureDisplayMode": config.feature_display_mode,
     });
 
     std::fs::write(output_root.join("index.html"), build_index_html())
