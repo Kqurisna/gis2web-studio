@@ -280,7 +280,12 @@ function App() {
               selectedLayerIndexes={selectedLayerIndexes}
               boundaryLayerIndex={boundaryLayerIndex}
               layerColors={layerColors}
+              layerCategoryColors={layerCategoryColors}
               layerOpacities={layerOpacities}
+              layerPointSizes={layerPointSizes}
+              layerOrder={layerOrder}
+              layerVisibleFields={layerVisibleFields}
+              layerAttributeTableEnabled={layerAttributeTableEnabled}
               config={config}
             />
           ) : (

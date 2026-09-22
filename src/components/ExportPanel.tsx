@@ -11,16 +11,33 @@ interface ExportPanelProps {
   selectedLayerIndexes: number[];
   boundaryLayerIndex: number | null;
   layerColors: Record<number, string>;
+  layerCategoryColors: Record<number, Record<string, string>>;
   layerOpacities: Record<number, number>;
+  layerPointSizes: Record<number, number>;
+  layerOrder: number[];
+  layerVisibleFields: Record<number, string[]>;
+  layerAttributeTableEnabled: Record<number, boolean>;
   config: WebGisConfig;
 }
 
+interface ExportCategoryInput {
+  value: string;
+  color: string;
+}
+
 interface ExportLayerInput {
+  layer_index: number;
   name: string;
   datasource: string;
+  geometry_type: string;
   color: string;
   opacity: number;
+  point_size: number;
+  category_field: string | null;
+  categories: ExportCategoryInput[] | null;
+  visible_fields: string[] | null;
   is_boundary: boolean;
+  show_attribute_table: boolean;
 }
 
 function ExportPanel({
@@ -29,7 +46,12 @@ function ExportPanel({
   selectedLayerIndexes,
   boundaryLayerIndex,
   layerColors,
+  layerCategoryColors,
   layerOpacities,
+  layerPointSizes,
+  layerOrder,
+  layerVisibleFields,
+  layerAttributeTableEnabled,
   config,
 }: ExportPanelProps) {
   const [outputDir, setOutputDir] = useState<string | null>(null);
@@ -56,24 +78,45 @@ function ExportPanel({
     setResultMessage(null);
     setErrorMessage(null);
 
-    const indexesToExport = Array.from(
-      new Set([
-        ...selectedLayerIndexes,
-        ...(boundaryLayerIndex !== null ? [boundaryLayerIndex] : []),
-      ])
-    );
+    // Gabungkan layer yang dipilih + boundary, lalu urutkan sesuai layerOrder
+    // (urutan stacking yang sudah diatur user di GIS2Web Studio), supaya
+    // urutan render di hasil export identik dengan yang terlihat di aplikasi.
+    const indexesToExportSet = new Set([
+      ...selectedLayerIndexes,
+      ...(boundaryLayerIndex !== null ? [boundaryLayerIndex] : []),
+    ]);
+    const indexesToExport = [
+      ...layerOrder.filter((idx) => indexesToExportSet.has(idx)),
+      ...Array.from(indexesToExportSet).filter((idx) => !layerOrder.includes(idx)),
+    ];
 
     const exportLayers: ExportLayerInput[] = indexesToExport
-      .map((index) => layers[index])
-      .filter((l): l is LayerInfo => Boolean(l))
-      .map((layer, i) => {
-        const index = indexesToExport[i];
+      .map((index) => ({ index, layer: layers[index] }))
+      .filter((entry): entry is { index: number; layer: LayerInfo } => Boolean(entry.layer))
+      .map(({ index, layer }) => {
+        const isBoundary = index === boundaryLayerIndex;
+        const categoryOverrides = layerCategoryColors[index];
+        const categories: ExportCategoryInput[] | null =
+          layer.categories && layer.categories.length > 0
+            ? layer.categories.map((cat) => ({
+                value: cat.value,
+                color: categoryOverrides?.[cat.value] ?? cat.color,
+              }))
+            : null;
+
         return {
+          layer_index: index,
           name: layer.name,
           datasource: layer.datasource,
-          color: layerColors[index] ?? (index === boundaryLayerIndex ? "#f97316" : "#2563eb"),
+          geometry_type: layer.geometry_type,
+          color: layerColors[index] ?? (isBoundary ? "#f97316" : "#2563eb"),
           opacity: layerOpacities[index] ?? 0.35,
-          is_boundary: index === boundaryLayerIndex,
+          point_size: layerPointSizes[index] ?? 5,
+          category_field: layer.category_field,
+          categories,
+          visible_fields: layerVisibleFields[index] ?? null,
+          is_boundary: isBoundary,
+          show_attribute_table: layerAttributeTableEnabled[index] ?? false,
         };
       });
 
@@ -88,6 +131,7 @@ function ExportPanel({
           max_zoom: config.maxZoom,
           tile_url: BASEMAP_TILE_INFO[config.basemap].url,
           attribution: BASEMAP_TILE_INFO[config.basemap].attribution,
+          feature_display_mode: config.featureDisplayMode,
         },
       });
       setResultMessage(message);

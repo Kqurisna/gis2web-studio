@@ -661,11 +661,23 @@ fn slugify(name: &str) -> String {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+struct ExportCategoryInput {
+    value: String,
+    color: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
 struct ExportLayerInput {
+    layer_index: usize,
     name: String,
     datasource: String,
+    geometry_type: String,
     color: String,
     opacity: f64,
+    point_size: f64,
+    category_field: Option<String>,
+    categories: Option<Vec<ExportCategoryInput>>,
+    visible_fields: Option<Vec<String>>,
     is_boundary: bool,
     show_attribute_table: bool,
 }
@@ -678,6 +690,7 @@ struct ExportConfig {
     max_zoom: u32,
     tile_url: String,
     attribution: String,
+    feature_display_mode: String,
 }
 
 fn build_index_html() -> String {
