@@ -88,30 +88,13 @@ fn build_app_js(config_json: &str) -> String {
 
 const map = L.map('map');
 
-function addBasemap() {{
-  L.tileLayer(CONFIG.basemap.url, {{
-    attribution: CONFIG.basemap.attribution,
-    minZoom: CONFIG.minZoom,
-    maxZoom: CONFIG.maxZoom,
-    updateWhenIdle: true,
-    keepBuffer: 2,
-  }}).addTo(map);
-}}
+L.tileLayer(CONFIG.basemap.url, {{
+  attribution: CONFIG.basemap.attribution,
+  minZoom: CONFIG.minZoom,
+  maxZoom: CONFIG.maxZoom,
+}}).addTo(map);
 
 let boundaryFitted = false;
-let layersRemaining = CONFIG.layers.length;
-
-function onLayerSettled() {{
-  layersRemaining -= 1;
-  if (layersRemaining <= 0) {{
-    addBasemap();
-  }}
-}}
-
-if (CONFIG.layers.length === 0) {{
-  map.setView([0, 0], 2);
-  addBasemap();
-}}
 
 CONFIG.layers.forEach((layer) => {{
   fetch(layer.file)
@@ -134,8 +117,7 @@ CONFIG.layers.forEach((layer) => {{
         map.fitBounds(gLayer.getBounds());
       }}
     }})
-    .catch((err) => console.error('Gagal memuat layer:', layer.file, err))
-    .finally(() => onLayerSettled());
+    .catch((err) => console.error('Gagal memuat layer:', layer.file, err));
 }});
 "#
     )

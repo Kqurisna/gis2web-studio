@@ -1127,20 +1127,11 @@ fn build_app_js(config_json: &str) -> String {
 const map = L.map('map', {{ zoomControl: false }});
 L.control.zoom({{ position: 'bottomright' }}).addTo(map);
 
-function addBasemap() {{
-  L.tileLayer(CONFIG.basemap.url, {{
-    attribution: CONFIG.basemap.attribution,
-    minZoom: CONFIG.minZoom,
-    maxZoom: CONFIG.maxZoom,
-    updateWhenIdle: true,
-    keepBuffer: 2,
-  }}).addTo(map);
-}}
-if (window.requestIdleCallback) {{
-  window.requestIdleCallback(addBasemap, {{ timeout: 800 }});
-}} else {{
-  setTimeout(addBasemap, 150);
-}}
+L.tileLayer(CONFIG.basemap.url, {{
+  attribution: CONFIG.basemap.attribution,
+  minZoom: CONFIG.minZoom,
+  maxZoom: CONFIG.maxZoom,
+}}).addTo(map);
 
 function escapeHtml(value) {{
   return String(value)
