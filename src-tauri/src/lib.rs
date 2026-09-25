@@ -719,6 +719,13 @@ fn build_index_html() -> String {
     <table id="feature-info-card-table" class="feature-info-card-table"></table>
   </div>
 </div>
+<div id="layer-toggle-panel" class="layer-toggle-panel" hidden>
+  <div class="layer-toggle-header">
+    <span class="layer-toggle-title">Layer</span>
+    <button type="button" id="layer-toggle-collapse-btn" class="layer-toggle-collapse-btn">&#9660;</button>
+  </div>
+  <div id="layer-toggle-list" class="layer-toggle-list"></div>
+</div>
 <div id="attribute-table-panel" class="attribute-table-panel" hidden>
   <div class="attribute-table-header">
     <div class="attribute-table-header-left">
@@ -1024,6 +1031,91 @@ fn build_style_css() -> String {
 
 .attribute-data-table tbody tr.active-row {
   background: #eff6ff;
+}
+
+.layer-toggle-panel {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1000;
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 12px 36px rgba(16, 16, 30, 0.16);
+  border: 1px solid #e7e7ee;
+  width: 220px;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100% - 2rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: -apple-system, "Inter", Helvetica, Arial, sans-serif;
+}
+
+.layer-toggle-panel[hidden] {
+  display: none;
+}
+
+.layer-toggle-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid #e7e7ee;
+  flex-shrink: 0;
+}
+
+.layer-toggle-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #18181b;
+}
+
+.layer-toggle-collapse-btn {
+  background: #fafafa;
+  border: 1px solid #e7e7ee;
+  font-size: 0.75rem;
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  color: #71717a;
+}
+
+.layer-toggle-collapse-btn:hover {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.layer-toggle-list {
+  padding: 0.6rem 0.75rem;
+  overflow-y: auto;
+}
+
+.layer-toggle-list[hidden] {
+  display: none;
+}
+
+.layer-toggle-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  font-size: 0.82rem;
+  color: #18181b;
+}
+
+.layer-toggle-item input[type="checkbox"] {
+  accent-color: #2563eb;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.layer-toggle-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 "#.to_string()
 }
@@ -1458,6 +1550,62 @@ if (attributeTableLayers.length > 0) {{
   setAttributeTableCollapsed(true);
 }}
 
+// ---- Layer visibility toggle: on/off tampil di peta, murni interaksi
+// end-user. TIDAK mengubah warna/opacity/order/konfigurasi lain - itu
+// semua sudah final dari GIS2Web Studio dan tidak diedit di sini. ----
+const layerTogglePanelEl = document.getElementById('layer-toggle-panel');
+const layerToggleListEl = document.getElementById('layer-toggle-list');
+const layerToggleCollapseBtn = document.getElementById('layer-toggle-collapse-btn');
+let layerToggleCollapsed = false;
+
+function setLayerToggleCollapsed(collapsed) {{
+  layerToggleCollapsed = collapsed;
+  layerToggleListEl.hidden = collapsed;
+  layerToggleCollapseBtn.innerHTML = collapsed ? '&#9650;' : '&#9660;';
+}}
+
+layerToggleCollapseBtn.addEventListener('click', () => setLayerToggleCollapsed(!layerToggleCollapsed));
+
+function renderLayerTogglePanel() {{
+  if (CONFIG.layers.length === 0) return;
+  layerTogglePanelEl.hidden = false;
+  layerToggleListEl.innerHTML = '';
+
+  CONFIG.layers.forEach((layerCfg) => {{
+    const gLayer = layerRefs[layerCfg.layerIndex];
+    if (!gLayer) return;
+
+    const item = document.createElement('label');
+    item.className = 'layer-toggle-item';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = map.hasLayer(gLayer);
+    checkbox.addEventListener('change', () => {{
+      if (checkbox.checked) {{
+        map.addLayer(gLayer);
+      }} else {{
+        map.removeLayer(gLayer);
+        // Kalau feature yang sedang aktif ada di layer yang disembunyikan,
+        // bersihkan seleksi supaya tidak ada popup/card 'menggantung' untuk
+        // feature yang sudah tidak terlihat.
+        if (activeFeatureKey && Number(activeFeatureKey.split(':')[0]) === layerCfg.layerIndex) {{
+          activeFeatureKey = null;
+          closeAllPopups();
+          hideFeatureCard();
+        }}
+      }}
+    }});
+
+    const label = document.createElement('span');
+    label.textContent = layerCfg.name + (layerCfg.isBoundary ? ' (Boundary)' : '');
+
+    item.appendChild(checkbox);
+    item.appendChild(label);
+    layerToggleListEl.appendChild(item);
+  }});
+}}
+
 function loadLayer(layer) {{
   return fetch(layer.file)
     .then((res) => res.json())
@@ -1521,6 +1669,7 @@ Promise.all(CONFIG.layers.map(loadLayer)).then(() => {{
   if (attributeTableLayers.length > 0) {{
     renderAttributeTableRows();
   }}
+  renderLayerTogglePanel();
 }});
 "#
     )
