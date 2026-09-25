@@ -701,6 +701,8 @@ fn build_index_html() -> String {
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>GIS2Web Studio Export</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+<script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -945,9 +947,9 @@ function buildPopupHtml(rows) {{
     return '<div class="feature-popup"><p>Tidak ada atribut untuk ditampilkan.</p></div>';
   }}
   const trs = rows
-    .map((r) => `<tr><th>$${{escapeHtml(r.key)}}</th><td>$${{escapeHtml(r.value)}}</td></tr>`)
+    .map((r) => `<tr><th>${{escapeHtml(r.key)}}</th><td>${{escapeHtml(r.value)}}</td></tr>`)
     .join('');
-  return `<div class="feature-popup"><table class="feature-popup-table">$${{trs}}</table></div>`;
+  return `<div class="feature-popup"><table class="feature-popup-table">${{trs}}</table></div>`;
 }}
 
 // ---- Feature Information card (mode 'card' / 'both') ----
@@ -961,7 +963,7 @@ function showFeatureCard(layerName, rows) {{
   cardTitleEl.textContent = 'Feature Information';
   cardSubtitleEl.textContent = layerName;
   cardTableEl.innerHTML = rows
-    ? rows.map((r) => `<tr><th>$${{escapeHtml(r.key)}}</th><td>$${{escapeHtml(r.value)}}</td></tr>`).join('')
+    ? rows.map((r) => `<tr><th>${{escapeHtml(r.key)}}</th><td>${{escapeHtml(r.value)}}</td></tr>`).join('')
     : '<tr><td>Tidak ada atribut.</td></tr>';
   cardEl.hidden = false;
 }}
@@ -973,20 +975,240 @@ function hideFeatureCard() {{
 cardCloseBtn.addEventListener('click', hideFeatureCard);
 
 const layerRefs = {{}};
+const layerGeojsonData = {{}};
+const featureLayerRefs = {{}};
+const layerStyleFns = {{}};
 let boundaryFitted = false;
+let activeFeatureKey = null;
+const clickCycle = {{ point: null, matches: [], index: -1 }};
+
+// ---- Highlight seleksi: strong (feature diklik) / subtle (feature lain di
+// layer yang sama). Sama persis dengan getStrongHighlightStyle/
+// getSubtleHighlightStyle di layerStyle.ts pada aplikasi. ----
+function getStrongHighlightStyle(base) {{
+  return Object.assign({{}}, base, {{
+    weight: (base.weight || 1.5) + 3,
+    color: '#facc15',
+    fillOpacity: Math.min((base.fillOpacity || 0.35) + 0.25, 0.85),
+  }});
+}}
+function getSubtleHighlightStyle(base) {{
+  return Object.assign({{}}, base, {{
+    weight: (base.weight || 1.5) + 1.5,
+    fillOpacity: Math.min((base.fillOpacity || 0.35) + 0.1, 0.7),
+  }});
+}}
+
+// ---- Prioritas hit-test: Point > Line > Polygon. Sama persis dengan
+// geometryPriority() di MapView.tsx. ----
+function geometryPriority(geomType) {{
+  if (geomType === 'Point' || geomType === 'MultiPoint') return 0;
+  if (geomType === 'LineString' || geomType === 'MultiLineString') return 1;
+  if (geomType === 'Polygon' || geomType === 'MultiPolygon') return 2;
+  return 3;
+}}
+
+const NEAREST_FEATURE_PIXEL_TOLERANCE = 18;
+
+function getVisibleZOrderedFeatureCandidates(latlng) {{
+  const pt = turf.point([latlng.lng, latlng.lat]);
+  const candidates = [];
+  const nearestByDistance = [];
+
+  const clickPoint = map.latLngToContainerPoint(latlng);
+  const toleranceProbe = L.point(clickPoint.x + NEAREST_FEATURE_PIXEL_TOLERANCE, clickPoint.y);
+  const toleranceLatLng = map.containerPointToLatLng(toleranceProbe);
+  const toleranceMeters = latlng.distanceTo(toleranceLatLng);
+
+  // CONFIG.layers sudah terurut sesuai layerOrder final (layer atas dulu).
+  CONFIG.layers.forEach((layerCfg) => {{
+    const gLayer = layerRefs[layerCfg.layerIndex];
+    if (!gLayer || !map.hasLayer(gLayer)) return;
+    const geojsonData = layerGeojsonData[layerCfg.layerIndex];
+    if (!geojsonData) return;
+
+    const features = geojsonData.features || [];
+    features.forEach((feature, featureIndex) => {{
+      const geomType = feature.geometry ? feature.geometry.type : undefined;
+      const key = layerCfg.layerIndex + ':' + featureIndex;
+
+      if (geomType === 'Point' || geomType === 'MultiPoint') {{
+        const coordsList = geomType === 'Point' ? [feature.geometry.coordinates] : feature.geometry.coordinates;
+        for (const c of coordsList) {{
+          const d = latlng.distanceTo(L.latLng(c[1], c[0]));
+          if (d <= toleranceMeters) {{
+            const layerInstance = featureLayerRefs[key];
+            if (layerInstance) {{
+              nearestByDistance.push({{ layerIndex: layerCfg.layerIndex, featureIndex, layerInstance, geomType, distanceMeters: d }});
+            }}
+            break;
+          }}
+        }}
+        return;
+      }}
+
+      if (geomType === 'LineString' || geomType === 'MultiLineString') {{
+        try {{
+          const lines = geomType === 'MultiLineString'
+            ? feature.geometry.coordinates.map((coords) => turf.lineString(coords))
+            : [turf.lineString(feature.geometry.coordinates)];
+          for (const line of lines) {{
+            const d = turf.pointToLineDistance(pt, line, {{ units: 'meters' }});
+            if (d <= toleranceMeters) {{
+              const layerInstance = featureLayerRefs[key];
+              if (layerInstance) {{
+                nearestByDistance.push({{ layerIndex: layerCfg.layerIndex, featureIndex, layerInstance, geomType, distanceMeters: d }});
+              }}
+              break;
+            }}
+          }}
+        }} catch (e) {{ /* geometry tidak valid, skip */ }}
+        return;
+      }}
+
+      if (geomType !== 'Polygon' && geomType !== 'MultiPolygon') return;
+
+      try {{
+        if (turf.booleanPointInPolygon(pt, feature)) {{
+          const layerInstance = featureLayerRefs[key];
+          if (layerInstance) {{
+            candidates.push({{ layerIndex: layerCfg.layerIndex, featureIndex, layerInstance, geomType, distanceMeters: 0 }});
+          }}
+          return;
+        }}
+      }} catch (e) {{ /* geometry tidak valid, coba fallback jarak */ }}
+
+      try {{
+        const boundary = turf.polygonToLine(feature);
+        const lineFeatures = boundary.type === 'FeatureCollection' ? boundary.features : [boundary];
+        const singleLines = [];
+        lineFeatures.forEach((lf) => {{
+          if (lf.geometry.type === 'LineString') {{
+            singleLines.push(lf);
+          }} else if (lf.geometry.type === 'MultiLineString') {{
+            lf.geometry.coordinates.forEach((coords) => singleLines.push(turf.lineString(coords)));
+          }}
+        }});
+        for (const line of singleLines) {{
+          const d = turf.pointToLineDistance(pt, line, {{ units: 'meters' }});
+          if (d <= toleranceMeters) {{
+            const layerInstance = featureLayerRefs[key];
+            if (layerInstance) {{
+              nearestByDistance.push({{ layerIndex: layerCfg.layerIndex, featureIndex, layerInstance, geomType, distanceMeters: d }});
+            }}
+            break;
+          }}
+        }}
+      }} catch (e) {{ /* geometry tidak valid untuk fallback juga, skip */ }}
+    }});
+  }});
+
+  const merged = candidates.concat(nearestByDistance);
+  if (merged.length === 0) return [];
+  merged.sort((a, b) => {{
+    const p = geometryPriority(a.geomType) - geometryPriority(b.geomType);
+    if (p !== 0) return p;
+    return a.distanceMeters - b.distanceMeters;
+  }});
+  return merged;
+}}
+
+function applyHighlightForActive() {{
+  Object.keys(featureLayerRefs).forEach((key) => {{
+    const layerIndexStr = key.split(':')[0];
+    const layerIndex = Number(layerIndexStr);
+    const layerInstance = featureLayerRefs[key];
+    const styleFn = layerStyleFns[layerIndex];
+    if (!styleFn || typeof layerInstance.setStyle !== 'function') return;
+    const baseStyle = styleFn(layerInstance.feature);
+
+    if (!activeFeatureKey || activeFeatureKey.split(':')[0] !== layerIndexStr) {{
+      layerInstance.setStyle(baseStyle);
+      return;
+    }}
+    if (key === activeFeatureKey) {{
+      layerInstance.setStyle(getStrongHighlightStyle(baseStyle));
+      if (typeof layerInstance.bringToFront === 'function') layerInstance.bringToFront();
+    }} else {{
+      layerInstance.setStyle(getSubtleHighlightStyle(baseStyle));
+    }}
+  }});
+}}
+
+function closeAllPopups() {{
+  Object.keys(featureLayerRefs).forEach((key) => {{
+    const l = featureLayerRefs[key];
+    if (typeof l.closePopup === 'function') l.closePopup();
+  }});
+}}
+
+function handleMapClick(e) {{
+  const candidates = getVisibleZOrderedFeatureCandidates(e.latlng);
+  if (candidates.length === 0) return;
+
+  const clickPoint = map.latLngToContainerPoint(e.latlng);
+  const sameKeys = clickCycle.matches.length === candidates.length &&
+    clickCycle.matches.every((m, i) => m.layerIndex === candidates[i].layerIndex && m.featureIndex === candidates[i].featureIndex);
+  const closeToPrev = clickCycle.point ? clickCycle.point.distanceTo(clickPoint) < 15 : false;
+  const nextIndex = sameKeys && closeToPrev ? (clickCycle.index + 1) % candidates.length : 0;
+
+  clickCycle.point = clickPoint;
+  clickCycle.matches = candidates.map((c) => ({{ layerIndex: c.layerIndex, featureIndex: c.featureIndex }}));
+  clickCycle.index = nextIndex;
+
+  const selected = candidates[nextIndex];
+  activeFeatureKey = selected.layerIndex + ':' + selected.featureIndex;
+  applyHighlightForActive();
+
+  closeAllPopups();
+
+  const layerConfig = CONFIG.layers.find((l) => l.layerIndex === selected.layerIndex);
+  const geojsonData = layerGeojsonData[selected.layerIndex];
+  const feature = geojsonData ? geojsonData.features[selected.featureIndex] : null;
+  const rows = layerConfig && feature ? buildFieldsTable(feature.properties, layerConfig.visibleFields) : null;
+
+  if (CONFIG.featureDisplayMode !== 'card' && typeof selected.layerInstance.openPopup === 'function') {{
+    selected.layerInstance.openPopup(e.latlng);
+  }}
+  if (CONFIG.featureDisplayMode !== 'popup') {{
+    showFeatureCard(layerConfig ? layerConfig.name : '', rows);
+  }}
+}}
+
+map.on('click', handleMapClick);
+
+// Point/MultiPoint selalu tampak di atas Polygon/Buffer (murni z-order).
+function bringPointFeaturesToFront() {{
+  Object.keys(featureLayerRefs).forEach((key) => {{
+    const parts = key.split(':');
+    const layerIndex = Number(parts[0]);
+    const featureIndex = Number(parts[1]);
+    const geojsonData = layerGeojsonData[layerIndex];
+    const feat = geojsonData ? geojsonData.features[featureIndex] : null;
+    const geomType = feat && feat.geometry ? feat.geometry.type : undefined;
+    if (geomType !== 'Point' && geomType !== 'MultiPoint') return;
+    const layerInstance = featureLayerRefs[key];
+    if (layerInstance && typeof layerInstance.bringToFront === 'function') {{
+      layerInstance.bringToFront();
+    }}
+  }});
+}}
 
 function loadLayer(layer) {{
   return fetch(layer.file)
     .then((res) => res.json())
     .then((geojson) => {{
-      const isPointGeometry = layer.geometryType === 'Point';
+      layerGeojsonData[layer.layerIndex] = geojson;
+
+      const styleFn = (feature) => ({{
+        color: resolveFeatureColor(layer, feature),
+        weight: layer.isBoundary ? 2 : 1.5,
+        fillOpacity: layer.isBoundary ? 0 : layer.opacity,
+      }});
+      layerStyleFns[layer.layerIndex] = styleFn;
 
       const gLayer = L.geoJSON(geojson, {{
-        style: (feature) => ({{
-          color: resolveFeatureColor(layer, feature),
-          weight: layer.isBoundary ? 2 : 1.5,
-          fillOpacity: layer.isBoundary ? 0 : layer.opacity,
-        }}),
+        style: styleFn,
         pointToLayer: (feature, latlng) =>
           L.circleMarker(latlng, {{
             radius: layer.pointSize || 5,
@@ -994,6 +1216,7 @@ function loadLayer(layer) {{
             fillOpacity: layer.opacity,
           }}),
         onEachFeature: (feature, layerInstance) => {{
+          const featureIndex = geojson.features.indexOf(feature);
           const properties = feature.properties || null;
           const rows = buildFieldsTable(properties, layer.visibleFields);
 
@@ -1001,14 +1224,9 @@ function loadLayer(layer) {{
             layerInstance.bindPopup(() => buildPopupHtml(rows), {{ autoPan: false }});
           }}
 
-          layerInstance.on('click', () => {{
-            if (CONFIG.featureDisplayMode === 'card') {{
-              layerInstance.closePopup();
-            }}
-            if (CONFIG.featureDisplayMode !== 'popup') {{
-              showFeatureCard(layer.name, rows);
-            }}
-          }});
+          if (featureIndex !== -1) {{
+            featureLayerRefs[layer.layerIndex + ':' + featureIndex] = layerInstance;
+          }}
         }},
       }}).addTo(map);
 
@@ -1035,6 +1253,7 @@ Promise.all(CONFIG.layers.map(loadLayer)).then(() => {{
       gLayer.bringToFront();
     }}
   }});
+  bringPointFeaturesToFront();
 }});
 "#
     )
