@@ -719,6 +719,21 @@ fn build_index_html() -> String {
     <table id="feature-info-card-table" class="feature-info-card-table"></table>
   </div>
 </div>
+<div id="attribute-table-panel" class="attribute-table-panel" hidden>
+  <div class="attribute-table-header">
+    <div class="attribute-table-header-left">
+      <span class="attribute-table-title">Attribute Table</span>
+      <select id="attribute-table-layer-select" class="attribute-table-layer-select"></select>
+      <span id="attribute-table-count" class="attribute-table-count"></span>
+    </div>
+    <button type="button" id="attribute-table-toggle-btn" class="attribute-table-toggle-btn">&#9660;</button>
+  </div>
+  <div id="attribute-table-body" class="attribute-table-body">
+    <div class="attribute-table-scroll">
+      <table id="attribute-data-table" class="attribute-data-table"></table>
+    </div>
+  </div>
+</div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="js/app.js"></script>
 </body>
@@ -888,6 +903,127 @@ fn build_style_css() -> String {
 .feature-popup-table td {
   color: #18181b;
   word-break: break-word;
+}
+
+.attribute-table-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;
+  max-height: 45%;
+  background: #ffffff;
+  border-top: 1px solid #e7e7ee;
+  box-shadow: 0 12px 36px rgba(16, 16, 30, 0.16);
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, "Inter", Helvetica, Arial, sans-serif;
+}
+
+.attribute-table-panel[hidden] {
+  display: none;
+}
+
+.attribute-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #e7e7ee;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+
+.attribute-table-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.attribute-table-title {
+  font-weight: 700;
+  color: #18181b;
+}
+
+.attribute-table-layer-select {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid #e7e7ee;
+  background: #ffffff;
+}
+
+.attribute-table-count {
+  color: #a1a1aa;
+  font-size: 0.75rem;
+}
+
+.attribute-table-toggle-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #71717a;
+  padding: 0.2rem 0.5rem;
+}
+
+.attribute-table-toggle-btn:hover {
+  color: #18181b;
+}
+
+.attribute-table-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.attribute-table-body[hidden] {
+  display: none;
+}
+
+.attribute-table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.attribute-data-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.8rem;
+}
+
+.attribute-data-table th,
+.attribute-data-table td {
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid #e7e7ee;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.attribute-data-table th {
+  position: sticky;
+  top: 0;
+  background: #fafafa;
+  color: #a1a1aa;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.attribute-data-table tbody tr {
+  cursor: pointer;
+}
+
+.attribute-data-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.attribute-data-table tbody tr.active-row {
+  background: #eff6ff;
 }
 "#.to_string()
 }
@@ -1142,6 +1278,38 @@ function closeAllPopups() {{
   }});
 }}
 
+// Fungsi terpusat untuk "memilih" sebuah feature, dipakai baik dari klik
+// peta maupun klik row di Attribute Table, supaya highlight/popup/card dan
+// sinkronisasi selalu konsisten dari kedua sumber. latlng opsional (row
+// Attribute Table tidak selalu punya titik klik di peta).
+function selectFeature(layerIndex, featureIndex, latlng) {{
+  const key = layerIndex + ':' + featureIndex;
+  const layerInstance = featureLayerRefs[key];
+  if (!layerInstance) return;
+
+  activeFeatureKey = key;
+  applyHighlightForActive();
+  closeAllPopups();
+
+  const layerConfig = CONFIG.layers.find((l) => l.layerIndex === layerIndex);
+  const geojsonData = layerGeojsonData[layerIndex];
+  const feature = geojsonData ? geojsonData.features[featureIndex] : null;
+  const rows = layerConfig && feature ? buildFieldsTable(feature.properties, layerConfig.visibleFields) : null;
+
+  if (CONFIG.featureDisplayMode !== 'card' && typeof layerInstance.openPopup === 'function') {{
+    if (latlng) {{
+      layerInstance.openPopup(latlng);
+    }} else {{
+      layerInstance.openPopup();
+    }}
+  }}
+  if (CONFIG.featureDisplayMode !== 'popup') {{
+    showFeatureCard(layerConfig ? layerConfig.name : '', rows);
+  }}
+
+  syncAttributeTableToActiveFeature();
+}}
+
 function handleMapClick(e) {{
   const candidates = getVisibleZOrderedFeatureCandidates(e.latlng);
   if (candidates.length === 0) return;
@@ -1157,22 +1325,7 @@ function handleMapClick(e) {{
   clickCycle.index = nextIndex;
 
   const selected = candidates[nextIndex];
-  activeFeatureKey = selected.layerIndex + ':' + selected.featureIndex;
-  applyHighlightForActive();
-
-  closeAllPopups();
-
-  const layerConfig = CONFIG.layers.find((l) => l.layerIndex === selected.layerIndex);
-  const geojsonData = layerGeojsonData[selected.layerIndex];
-  const feature = geojsonData ? geojsonData.features[selected.featureIndex] : null;
-  const rows = layerConfig && feature ? buildFieldsTable(feature.properties, layerConfig.visibleFields) : null;
-
-  if (CONFIG.featureDisplayMode !== 'card' && typeof selected.layerInstance.openPopup === 'function') {{
-    selected.layerInstance.openPopup(e.latlng);
-  }}
-  if (CONFIG.featureDisplayMode !== 'popup') {{
-    showFeatureCard(layerConfig ? layerConfig.name : '', rows);
-  }}
+  selectFeature(selected.layerIndex, selected.featureIndex, e.latlng);
 }}
 
 map.on('click', handleMapClick);
@@ -1192,6 +1345,117 @@ function bringPointFeaturesToFront() {{
       layerInstance.bringToFront();
     }}
   }});
+}}
+
+// ---- Attribute Table: hanya layer dengan showAttributeTable=true yang
+// muncul di dropdown, sesuai konfigurasi yang sudah diatur di GIS2Web
+// Studio. Klik row -> selectFeature() (fungsi yang sama dipakai klik peta).
+// Saat feature dipilih dari peta, tabel ikut sync (ganti layer dropdown +
+// highlight row aktif). ----
+const attrPanelEl = document.getElementById('attribute-table-panel');
+const attrLayerSelectEl = document.getElementById('attribute-table-layer-select');
+const attrCountEl = document.getElementById('attribute-table-count');
+const attrToggleBtn = document.getElementById('attribute-table-toggle-btn');
+const attrBodyEl = document.getElementById('attribute-table-body');
+const attrDataTableEl = document.getElementById('attribute-data-table');
+
+const attributeTableLayers = CONFIG.layers.filter((l) => l.showAttributeTable);
+let attrSelectedLayerIndex = attributeTableLayers.length > 0 ? attributeTableLayers[0].layerIndex : null;
+let attrCollapsed = true;
+
+function renderAttributeTableOptions() {{
+  attrLayerSelectEl.innerHTML = '';
+  attributeTableLayers.forEach((l) => {{
+    const opt = document.createElement('option');
+    opt.value = String(l.layerIndex);
+    opt.textContent = l.name;
+    attrLayerSelectEl.appendChild(opt);
+  }});
+  if (attrSelectedLayerIndex !== null) {{
+    attrLayerSelectEl.value = String(attrSelectedLayerIndex);
+  }}
+  attrLayerSelectEl.style.display = attributeTableLayers.length > 1 ? '' : 'none';
+}}
+
+function renderAttributeTableRows() {{
+  if (attrSelectedLayerIndex === null) {{
+    attrDataTableEl.innerHTML = '';
+    attrCountEl.textContent = '';
+    return;
+  }}
+  const geojsonData = layerGeojsonData[attrSelectedLayerIndex];
+  if (!geojsonData) {{
+    attrDataTableEl.innerHTML = '<tbody><tr><td>Memuat data...</td></tr></tbody>';
+    return;
+  }}
+  const features = geojsonData.features || [];
+  const fieldSet = [];
+  features.forEach((f) => {{
+    if (f.properties) {{
+      Object.keys(f.properties).forEach((k) => {{
+        if (fieldSet.indexOf(k) === -1) fieldSet.push(k);
+      }});
+    }}
+  }});
+
+  attrCountEl.textContent = features.length + ' fitur';
+
+  if (fieldSet.length === 0) {{
+    attrDataTableEl.innerHTML = '<tbody><tr><td>Tidak ada data atribut pada layer ini.</td></tr></tbody>';
+    return;
+  }}
+
+  const theadHtml = '<thead><tr>' + fieldSet.map((f) => '<th>' + escapeHtml(f) + '</th>').join('') + '</tr></thead>';
+  const tbodyRows = features.map((f, featureIndex) => {{
+    const isActive = activeFeatureKey === (attrSelectedLayerIndex + ':' + featureIndex);
+    const cells = fieldSet.map((field) => {{
+      const v = f.properties ? f.properties[field] : undefined;
+      return '<td>' + escapeHtml(v === null || v === undefined ? '-' : String(v)) + '</td>';
+    }}).join('');
+    return '<tr data-feature-index="' + featureIndex + '" class="' + (isActive ? 'active-row' : '') + '">' + cells + '</tr>';
+  }}).join('');
+
+  attrDataTableEl.innerHTML = theadHtml + '<tbody>' + tbodyRows + '</tbody>';
+
+  const rows = attrDataTableEl.querySelectorAll('tbody tr');
+  rows.forEach((tr) => {{
+    tr.addEventListener('click', () => {{
+      const fi = Number(tr.getAttribute('data-feature-index'));
+      selectFeature(attrSelectedLayerIndex, fi);
+    }});
+  }});
+}}
+
+function setAttributeTableCollapsed(collapsed) {{
+  attrCollapsed = collapsed;
+  attrBodyEl.hidden = collapsed;
+  attrToggleBtn.innerHTML = collapsed ? '&#9650;' : '&#9660;';
+}}
+
+attrToggleBtn.addEventListener('click', () => setAttributeTableCollapsed(!attrCollapsed));
+
+attrLayerSelectEl.addEventListener('change', (e) => {{
+  attrSelectedLayerIndex = Number(e.target.value);
+  renderAttributeTableRows();
+}});
+
+function syncAttributeTableToActiveFeature() {{
+  if (!activeFeatureKey) return;
+  const layerIndex = Number(activeFeatureKey.split(':')[0]);
+  const isTrackedLayer = attributeTableLayers.some((l) => l.layerIndex === layerIndex);
+  if (!isTrackedLayer) return;
+
+  if (attrSelectedLayerIndex !== layerIndex) {{
+    attrSelectedLayerIndex = layerIndex;
+    attrLayerSelectEl.value = String(layerIndex);
+  }}
+  renderAttributeTableRows();
+}}
+
+if (attributeTableLayers.length > 0) {{
+  attrPanelEl.hidden = false;
+  renderAttributeTableOptions();
+  setAttributeTableCollapsed(true);
 }}
 
 function loadLayer(layer) {{
@@ -1254,6 +1518,9 @@ Promise.all(CONFIG.layers.map(loadLayer)).then(() => {{
     }}
   }});
   bringPointFeaturesToFront();
+  if (attributeTableLayers.length > 0) {{
+    renderAttributeTableRows();
+  }}
 }});
 "#
     )
