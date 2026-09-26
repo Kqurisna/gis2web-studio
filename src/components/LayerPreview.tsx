@@ -63,6 +63,8 @@ function LayerPreview({
     setError(null);
 
     const hasCategories = !!layer.categories && layer.categories.length > 0;
+    const hasRanges = !!layer.ranges && layer.ranges.length > 0;
+    const hasClassifiedStyle = hasCategories || hasRanges;
 
     function applyData(text: string) {
       if (cancelled || !mapRef.current) return;
@@ -74,7 +76,7 @@ function LayerPreview({
       }
 
       const style: L.StyleFunction = (feature) => {
-        const resolvedColor = hasCategories
+        const resolvedColor = hasClassifiedStyle
           ? resolveFeatureColor(layer, categoryColorOverrides, feature, fallbackColor)
           : fallbackColor;
         return styleForLayer(resolvedColor, false, 0.5);
@@ -83,7 +85,7 @@ function LayerPreview({
       const geoLayer = L.geoJSON(data, {
         style,
         pointToLayer: (feature, latlng) => {
-          const resolvedColor = hasCategories
+          const resolvedColor = hasClassifiedStyle
             ? resolveFeatureColor(layer, categoryColorOverrides, feature, fallbackColor)
             : fallbackColor;
           return L.circleMarker(latlng, { radius: 4, color: resolvedColor, fillOpacity: 0.7 });
