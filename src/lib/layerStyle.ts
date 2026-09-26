@@ -17,17 +17,38 @@ export function resolveFeatureColor(
   feature: GeoJSON.Feature | undefined,
   fallbackColor: string
 ): string {
-  if (!layer.categories || layer.categories.length === 0 || !layer.category_field) {
+  // Categorized renderer (warna per nilai diskrit)
+  if (layer.categories && layer.categories.length > 0 && layer.category_field) {
+    const rawValue = feature?.properties?.[layer.category_field];
+    const valueKey = rawValue === null || rawValue === undefined ? "NULL" : String(rawValue);
+
+    const override = categoryColorOverrides?.[valueKey];
+    if (override) return override;
+
+    const matched = layer.categories.find((cat) => cat.value === valueKey);
+    if (matched) return matched.color;
+
     return fallbackColor;
   }
-  const rawValue = feature?.properties?.[layer.category_field];
-  const valueKey = rawValue === null || rawValue === undefined ? "NULL" : String(rawValue);
 
-  const override = categoryColorOverrides?.[valueKey];
-  if (override) return override;
-
-  const matched = layer.categories.find((cat) => cat.value === valueKey);
-  if (matched) return matched.color;
+  // Graduated renderer (warna per rentang angka). Field sumber nilainya sama
+  // dengan category_field (di QGIS keduanya memakai atribut "attr" pada
+  // <renderer-v2>, diparse ke field yang sama di backend).
+  if (layer.ranges && layer.ranges.length > 0 && layer.category_field) {
+    const rawValue = feature?.properties?.[layer.category_field];
+    const numericValue = typeof rawValue === "number" ? rawValue : parseFloat(String(rawValue));
+    if (!Number.isNaN(numericValue)) {
+      const matched = layer.ranges.find(
+        (r) => numericValue >= r.lower && numericValue <= r.upper
+      );
+      if (matched) {
+        const override = categoryColorOverrides?.[matched.label];
+        if (override) return override;
+        return matched.color;
+      }
+    }
+    return fallbackColor;
+  }
 
   return fallbackColor;
 }

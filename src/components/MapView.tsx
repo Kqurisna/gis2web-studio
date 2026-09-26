@@ -647,9 +647,11 @@ function MapView({
           const layerOpacity = layerOpacities[index] ?? 0.35;
           const categoryOverrides = layerCategoryColors[index];
           const hasCategories = !!layer.categories && layer.categories.length > 0;
+          const hasRanges = !!layer.ranges && layer.ranges.length > 0;
+          const hasClassifiedStyle = hasCategories || hasRanges;
 
           const style: L.StyleFunction = (feature) => {
-            const resolvedColor = hasCategories
+            const resolvedColor = hasClassifiedStyle
               ? resolveFeatureColor(layer, categoryOverrides, feature, layerColor)
               : layerColor;
             return styleForLayer(resolvedColor, isBoundary, layerOpacity);
@@ -658,7 +660,7 @@ function MapView({
           const geoLayer = L.geoJSON(geojsonData, {
             style,
             pointToLayer: (feature, latlng) => {
-              const resolvedColor = hasCategories
+              const resolvedColor = hasClassifiedStyle
                 ? resolveFeatureColor(layer, categoryOverrides, feature, layerColor)
                 : layerColor;
               return L.circleMarker(latlng, {
