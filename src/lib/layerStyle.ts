@@ -1,5 +1,50 @@
 import type L from "leaflet";
+import area from "@turf/area";
 import type { LayerInfo } from "../components/ProjectPanel";
+
+// Menentukan feature mana saja (by index) yang berhak dapat label, meniru
+// filter QGIS "$area = maximum($area, group_by:=...)" — hanya 1 feature per
+// grup (yang luasnya paling besar) yang diberi label. Kalau layer tidak
+// punya group_by_field, semua feature yang punya nilai field label dianggap
+// berhak (labeling QGIS type="simple" tampil di semua feature).
+export function computeLabeledFeatureIndexes(
+  layer: LayerInfo,
+  geojsonData: GeoJSON.FeatureCollection
+): Set<number> {
+  const result = new Set<number>();
+  if (!layer.labeling) return result;
+
+  const { group_by_field } = layer.labeling;
+
+  if (!group_by_field) {
+    geojsonData.features.forEach((_, idx) => result.add(idx));
+    return result;
+  }
+
+  const largestByGroup = new Map<string, { index: number; area: number }>();
+
+  geojsonData.features.forEach((feature, idx) => {
+    const rawGroupValue = feature.properties?.[group_by_field];
+    const groupKey = rawGroupValue === null || rawGroupValue === undefined
+      ? "NULL"
+      : String(rawGroupValue);
+
+    let featureArea = 0;
+    try {
+      featureArea = area(feature as GeoJSON.Feature);
+    } catch {
+      featureArea = 0;
+    }
+
+    const current = largestByGroup.get(groupKey);
+    if (!current || featureArea > current.area) {
+      largestByGroup.set(groupKey, { index: idx, area: featureArea });
+    }
+  });
+
+  largestByGroup.forEach(({ index }) => result.add(index));
+  return result;
+}
 
 export function styleForLayer(
   color: string,

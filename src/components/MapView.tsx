@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLayerGeojson } from "../lib/layerGeojsonCache";
-import { styleForLayer, resolveFeatureColor, getStrongHighlightStyle, getSubtleHighlightStyle, getPreviewHighlightStyle } from "../lib/layerStyle";
+import { styleForLayer, resolveFeatureColor, computeLabeledFeatureIndexes, getStrongHighlightStyle, getSubtleHighlightStyle, getPreviewHighlightStyle } from "../lib/layerStyle";
 import { booleanPointInPolygon } from "@turf/boolean-point-in-polygon";
 import { point as turfPoint } from "@turf/helpers";
 import { pointToLineDistance } from "@turf/point-to-line-distance";
@@ -649,6 +649,7 @@ function MapView({
           const hasCategories = !!layer.categories && layer.categories.length > 0;
           const hasRanges = !!layer.ranges && layer.ranges.length > 0;
           const hasClassifiedStyle = hasCategories || hasRanges;
+          const labeledFeatureIndexes = computeLabeledFeatureIndexes(layer, geojsonData);
 
           const style: L.StyleFunction = (feature) => {
             const resolvedColor = hasClassifiedStyle
@@ -703,6 +704,23 @@ function MapView({
                 layerInstance.on("click", (e: L.LeafletMouseEvent) => {
                   handleCycleClickRef.current?.(e);
                 });
+              }
+
+              if (
+                layer.labeling &&
+                featureIndex !== -1 &&
+                labeledFeatureIndexes.has(featureIndex)
+              ) {
+                const labelValue = properties?.[layer.labeling.field];
+                const labelText =
+                  labelValue === null || labelValue === undefined ? "" : String(labelValue);
+                if (labelText) {
+                  layerInstance.bindTooltip(escapeHtml(labelText), {
+                    permanent: true,
+                    direction: "center",
+                    className: "layer-feature-label",
+                  });
+                }
               }
             },
           });
