@@ -127,15 +127,6 @@ fn parse_qgis_basemap_candidates(path: String) -> Result<Vec<BasemapCandidateInf
     parse_basemap_candidates(&xml_content)
 }
 
-#[tauri::command]
-fn check_gdal_available() -> bool {
-    Command::new("gdal2tiles.py")
-        .arg("--version")
-        .output()
-        .map(|out| out.status.success())
-        .unwrap_or(false)
-}
-
 fn rgba_string_to_hex(value: &str) -> Option<String> {
     let parts: Vec<&str> = value.split(',').collect();
     if parts.len() < 3 {
@@ -1881,7 +1872,6 @@ pub fn run() {
             greet,
             parse_qgis_project,
             parse_qgis_basemap_candidates,
-            check_gdal_available,
             get_layer_geojson,
             export_web_gis
         ])

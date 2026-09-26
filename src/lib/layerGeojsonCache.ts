@@ -9,14 +9,14 @@ function cacheKey(projectPath: string, datasource: string): string {
 
 export function getCachedGeojson(
   projectPath: string,
-  datasource: string
+  datasource: string,
 ): string | null {
   return cache.get(cacheKey(projectPath, datasource)) ?? null;
 }
 
 export function fetchLayerGeojson(
   projectPath: string,
-  datasource: string
+  datasource: string,
 ): Promise<string> {
   const key = cacheKey(projectPath, datasource);
 
@@ -50,10 +50,10 @@ export function fetchLayerGeojson(
 
 export async function prefetchAllLayers(
   projectPath: string,
-  datasources: string[]
+  datasources: string[],
 ): Promise<void> {
   await Promise.allSettled(
-    datasources.map((ds) => fetchLayerGeojson(projectPath, ds))
+    datasources.map((ds) => fetchLayerGeojson(projectPath, ds)),
   );
 }
 

@@ -26,116 +26,6 @@ struct LayerInfo {
     categories: Option<Vec<CategoryInfo>>,
 }
 
-#[derive(Serialize, Clone, Debug)]
-struct BasemapCandidateInfo {
-    name: String,
-    kind: String,
-    datasource: String,
-}
-
-fn classify_basemap_datasource(datasource: &str) -> Option<String> {
-    let lower = datasource.to_lowercase();
-    if lower.contains("type=xyz") || lower.contains("type=wms") || lower.starts_with("http://") || lower.starts_with("https://") || lower.contains("url=http") {
-        return Some("external_tile".to_string());
-    }
-    if lower.ends_with(".tif") || lower.ends_with(".tiff") || lower.contains(".tif|") || lower.contains(".tiff|") {
-        return Some("local_raster".to_string());
-    }
-    None
-}
-
-fn parse_basemap_candidates(xml_content: &str) -> Result<Vec<BasemapCandidateInfo>, String> {
-    let mut reader = Reader::from_str(xml_content);
-    reader.config_mut().trim_text(true);
-
-    let mut candidates = Vec::new();
-    let mut buf = Vec::new();
-
-    let mut in_maplayer = false;
-    let mut in_layername = false;
-    let mut in_datasource = false;
-    let mut current_layer_type: Option<String> = None;
-    let mut current_name: Option<String> = None;
-    let mut current_datasource = String::new();
-
-    loop {
-        match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(e)) | Ok(Event::Empty(e)) if e.name().as_ref() == b"maplayer" => {
-                in_maplayer = true;
-                current_layer_type = None;
-                current_name = None;
-                current_datasource = String::new();
-                for attr_result in e.attributes() {
-                    if let Ok(attr) = attr_result {
-                        if attr.key.as_ref() == b"type" {
-                            if let Ok(value) = attr.unescape_value() {
-                                current_layer_type = Some(value.to_lowercase());
-                            }
-                        }
-                    }
-                }
-            }
-            Ok(Event::Start(e)) if in_maplayer && e.name().as_ref() == b"layername" => {
-                in_layername = true;
-            }
-            Ok(Event::Text(e)) if in_layername => {
-                if let Ok(text) = e.unescape() {
-                    current_name = Some(text.trim().to_string());
-                }
-                in_layername = false;
-            }
-            Ok(Event::Start(e)) if in_maplayer && e.name().as_ref() == b"datasource" => {
-                in_datasource = true;
-            }
-            Ok(Event::Text(e)) if in_datasource => {
-                if let Ok(text) = e.unescape() {
-                    current_datasource = text.trim().to_string();
-                }
-            }
-            Ok(Event::End(e)) if e.name().as_ref() == b"datasource" => {
-                in_datasource = false;
-            }
-            Ok(Event::End(e)) if e.name().as_ref() == b"maplayer" => {
-                let is_raster_type = match &current_layer_type {
-                    Some(t) => t == "raster" || t == "wms" || t == "wmts",
-                    None => false,
-                };
-                if is_raster_type {
-                    if let Some(kind) = classify_basemap_datasource(&current_datasource) {
-                        candidates.push(BasemapCandidateInfo {
-                            name: current_name.clone().unwrap_or_else(|| "Basemap tanpa nama".to_string()),
-                            kind,
-                            datasource: current_datasource.clone(),
-                        });
-                    }
-                }
-                in_maplayer = false;
-            }
-            Ok(Event::Eof) => break,
-            Err(err) => return Err(format!("Gagal parsing XML: {err}")),
-            _ => {}
-        }
-        buf.clear();
-    }
-
-    Ok(candidates)
-}
-
-#[tauri::command]
-fn parse_qgis_basemap_candidates(path: String) -> Result<Vec<BasemapCandidateInfo>, String> {
-    let xml_content = extract_qgs_content(&path)?;
-    parse_basemap_candidates(&xml_content)
-}
-
-#[tauri::command]
-fn check_gdal_available() -> bool {
-    Command::new("gdal2tiles.py")
-        .arg("--version")
-        .output()
-        .map(|out| out.status.success())
-        .unwrap_or(false)
-}
-
 fn rgba_string_to_hex(value: &str) -> Option<String> {
     let parts: Vec<&str> = value.split(',').collect();
     if parts.len() < 3 {
@@ -1880,8 +1770,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             parse_qgis_project,
-            parse_qgis_basemap_candidates,
-            check_gdal_available,
             get_layer_geojson,
             export_web_gis
         ])
