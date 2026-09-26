@@ -40,49 +40,6 @@ interface ExportLayerInput {
   show_attribute_table: boolean;
 }
 
-async function resolveExportBasemap(
-  config: WebGisConfig,
-  outputDir: string
-): Promise<{ tile_url: string; attribution: string }> {
-  if (config.basemap !== "custom" || !config.customBasemap) {
-    return {
-      tile_url: BASEMAP_TILE_INFO[config.basemap].url,
-      attribution: BASEMAP_TILE_INFO[config.basemap].attribution,
-    };
-  }
-
-  const candidate = config.customBasemap;
-
-  if (candidate.kind === "external_tile") {
-    const match = candidate.datasource.match(/url=([^&]+)/);
-    if (!match) {
-      throw new Error(
-        `Tidak dapat membaca URL basemap dari datasource QGIS: ${candidate.datasource}`
-      );
-    }
-    let decoded: string;
-    try {
-      decoded = decodeURIComponent(match[1]);
-    } catch {
-      throw new Error(`URL basemap tidak valid pada datasource: ${candidate.datasource}`);
-    }
-    return { tile_url: decoded, attribution: `Custom: ${candidate.name}` };
-  }
-
-  // local_raster: generate tile pyramid via GDAL sebelum export dilanjutkan.
-  await invoke<string>("generate_tile_pyramid", {
-    rasterPath: candidate.datasource,
-    outputDir,
-    minZoom: config.minZoom,
-    maxZoom: config.maxZoom,
-  });
-
-  return {
-    tile_url: "./tiles/{z}/{x}/{y}.png",
-    attribution: `Custom raster: ${candidate.name}`,
-  };
-}
-
 function ExportPanel({
   projectPath,
   layers,
@@ -164,7 +121,6 @@ function ExportPanel({
       });
 
     try {
-      const basemapResolved = await resolveExportBasemap(config, outputDir);
       const message = await invoke<string>("export_web_gis", {
         projectPath,
         outputDir,
@@ -173,8 +129,8 @@ function ExportPanel({
           basemap: config.basemap,
           min_zoom: config.minZoom,
           max_zoom: config.maxZoom,
-          tile_url: basemapResolved.tile_url,
-          attribution: basemapResolved.attribution,
+          tile_url: BASEMAP_TILE_INFO[config.basemap].url,
+          attribution: BASEMAP_TILE_INFO[config.basemap].attribution,
           feature_display_mode: config.featureDisplayMode,
         },
       });
