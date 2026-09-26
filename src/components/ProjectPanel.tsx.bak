@@ -7,18 +7,6 @@ export interface CategoryInfo {
   color: string;
 }
 
-export interface GraduatedRangeInfo {
-  lower: number;
-  upper: number;
-  label: string;
-  color: string;
-}
-
-export interface LabelingInfo {
-  field: string;
-  group_by_field: string | null;
-}
-
 export interface LayerInfo {
   name: string;
   geometry_type: "Point" | "Line" | "Polygon" | "NoGeometry" | "Unknown";
@@ -26,8 +14,6 @@ export interface LayerInfo {
   color: string | null;
   category_field: string | null;
   categories: CategoryInfo[] | null;
-  ranges: GraduatedRangeInfo[] | null;
-  labeling: LabelingInfo | null;
 }
 
 interface ProjectPanelProps {
