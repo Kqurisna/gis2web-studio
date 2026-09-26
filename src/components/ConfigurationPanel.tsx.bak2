@@ -19,13 +19,6 @@ export const BASEMAP_TILE_INFO: Record<BasemapOption, { url: string; attribution
     url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
     attribution: "Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap",
   },
-  // Placeholder saja untuk kelengkapan type. Nilai url/attribution asli untuk
-  // basemap custom diambil dari config.customBasemap, ditangani terpisah
-  // saat export (bukan lewat tabel statis ini).
-  custom: {
-    url: "",
-    attribution: "",
-  },
 };
 
 export type FeatureDisplayMode = "both" | "card" | "popup";

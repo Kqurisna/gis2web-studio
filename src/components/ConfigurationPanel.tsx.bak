@@ -1,10 +1,4 @@
-export type BasemapOption = "osm" | "satellite" | "topo" | "custom";
-
-export interface BasemapCandidateInfo {
-  name: string;
-  kind: "local_raster" | "external_tile";
-  datasource: string;
-}
+export type BasemapOption = "osm" | "satellite" | "topo";
 
 export const BASEMAP_TILE_INFO: Record<BasemapOption, { url: string; attribution: string }> = {
   osm: {
@@ -19,13 +13,6 @@ export const BASEMAP_TILE_INFO: Record<BasemapOption, { url: string; attribution
     url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
     attribution: "Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap",
   },
-  // Placeholder saja untuk kelengkapan type. Nilai url/attribution asli untuk
-  // basemap custom diambil dari config.customBasemap, ditangani terpisah
-  // saat export (bukan lewat tabel statis ini).
-  custom: {
-    url: "",
-    attribution: "",
-  },
 };
 
 export type FeatureDisplayMode = "both" | "card" | "popup";
@@ -35,14 +22,11 @@ export interface WebGisConfig {
   minZoom: number;
   maxZoom: number;
   featureDisplayMode: FeatureDisplayMode;
-  customBasemap: BasemapCandidateInfo | null;
 }
 
 interface ConfigurationPanelProps {
   config: WebGisConfig;
   onConfigChange: (config: WebGisConfig) => void;
-  basemapCandidates?: BasemapCandidateInfo[];
-  gdalAvailable?: boolean;
 }
 
 const BASEMAP_OPTIONS: { value: BasemapOption; label: string }[] = [
@@ -72,24 +56,11 @@ const FEATURE_DISPLAY_OPTIONS: { value: FeatureDisplayMode; label: string; hint:
 const ZOOM_MIN_LIMIT = 5;
 const ZOOM_MAX_LIMIT = 20;
 
-function ConfigurationPanel({
-  config,
-  onConfigChange,
-  basemapCandidates = [],
-  gdalAvailable = false,
-}: ConfigurationPanelProps) {
+function ConfigurationPanel({ config, onConfigChange }: ConfigurationPanelProps) {
   const zoomError = config.maxZoom < config.minZoom;
 
   function updateBasemap(basemap: BasemapOption) {
     onConfigChange({ ...config, basemap });
-  }
-
-  function updateCustomBasemap(candidate: BasemapCandidateInfo) {
-    onConfigChange({ ...config, basemap: "custom", customBasemap: candidate });
-  }
-
-  function isCandidateDisabled(candidate: BasemapCandidateInfo): boolean {
-    return candidate.kind === "local_raster" && !gdalAvailable;
   }
 
   function updateMinZoom(value: number) {
@@ -122,41 +93,6 @@ function ConfigurationPanel({
             </label>
           ))}
         </div>
-
-        {basemapCandidates.length > 0 && (
-          <div className="config-radio-group config-radio-group--candidates">
-            <p className="config-static-value">Dari QGIS Project</p>
-            {basemapCandidates.map((candidate, idx) => {
-              const disabled = isCandidateDisabled(candidate);
-              const checked =
-                config.basemap === "custom" &&
-                config.customBasemap?.datasource === candidate.datasource;
-              return (
-                <label
-                  key={`${candidate.datasource}-${idx}`}
-                  className="config-radio-item config-radio-item--stacked"
-                >
-                  <div className="config-radio-item-row">
-                    <input
-                      type="radio"
-                      name="basemap"
-                      value={`custom-${idx}`}
-                      checked={checked}
-                      disabled={disabled}
-                      onChange={() => updateCustomBasemap(candidate)}
-                    />
-                    {candidate.name} ({candidate.kind === "local_raster" ? "Raster Lokal" : "URL Eksternal"})
-                  </div>
-                  {disabled && (
-                    <span className="config-radio-item-hint">
-                      GDAL tidak ditemukan di sistem, tidak bisa memproses raster lokal ini.
-                    </span>
-                  )}
-                </label>
-              );
-            })}
-          </div>
-        )}
       </section>
 
       <section className="config-section">
@@ -231,9 +167,7 @@ function ConfigurationPanel({
         <h3>Ringkasan Konfigurasi</h3>
         <p>
           Basemap:{" "}
-          {config.basemap === "custom"
-            ? config.customBasemap?.name ?? "Dari QGIS Project"
-            : BASEMAP_OPTIONS.find((o) => o.value === config.basemap)?.label}
+          {BASEMAP_OPTIONS.find((o) => o.value === config.basemap)?.label}
         </p>
         <p>
           Zoom: {config.minZoom} — {config.maxZoom}

@@ -5,7 +5,6 @@ import ProjectPanel, { type LayerInfo } from "./components/ProjectPanel";
 import ImportToolbar from "./components/ImportToolbar";
 import ConfigurationPanel, {
   type WebGisConfig,
-  type BasemapCandidateInfo,
 } from "./components/ConfigurationPanel";
 import ExportPanel from "./components/ExportPanel";
 import AttributeTablePanel from "./components/AttributeTablePanel";
@@ -91,8 +90,6 @@ function App() {
     featureDisplayMode: "card",
     customBasemap: null,
   });
-  const [basemapCandidates, setBasemapCandidates] = useState<BasemapCandidateInfo[]>([]);
-  const [gdalAvailable, setGdalAvailable] = useState(false);
 
   // Layer basemap/tile (mis. "OpenStreetMap" XYZ) yang ikut terbaca dari
   // file project QGIS bukan data vektor sungguhan dan tidak bisa diproses
@@ -210,8 +207,6 @@ function App() {
                 onLayersLoaded={handleLayersLoaded}
                 onSelectedLayerIndexesChange={setSelectedLayerIndexes}
                 onBoundaryLayerIndexChange={handleBoundaryLayerIndexChange}
-                onBasemapCandidatesLoaded={setBasemapCandidates}
-                onGdalAvailabilityChecked={setGdalAvailable}
               />
               <div className="project-map-layout">
                 <MapView
@@ -278,12 +273,7 @@ function App() {
               </div>
             </div>
           ) : activeMenu === "configuration" ? (
-            <ConfigurationPanel
-              config={config}
-              onConfigChange={setConfig}
-              basemapCandidates={basemapCandidates}
-              gdalAvailable={gdalAvailable}
-            />
+            <ConfigurationPanel config={config} onConfigChange={setConfig} />
           ) : activeMenu === "export" ? (
             <ExportPanel
               projectPath={projectPath}

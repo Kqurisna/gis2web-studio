@@ -50,41 +50,7 @@ const BASEMAP_TILE_CONFIG: Record<BasemapOption, BasemapTileDef> = {
     attribution: "Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap",
     maxNativeZoom: 17,
   },
-  // Placeholder untuk kelengkapan type. Nilai sesungguhnya untuk basemap
-  // custom dihitung secara dinamis lewat resolveCustomBasemapPreview(),
-  // karena bergantung pada layer yang dipilih user dari project QGIS.
-  custom: {
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "&copy; OpenStreetMap contributors",
-  },
 };
-
-// Preview di dalam app untuk basemap custom dari QGIS project:
-// - external_tile: datasource QGIS biasanya "type=xyz&url=<url-encoded>&...",
-//   ambil url-nya langsung untuk preview.
-// - local_raster: tile baru digenerate saat export (gdal2tiles), belum ada
-//   tile untuk di-preview di dalam app, jadi fallback ke OSM sebagai preview
-//   sementara (bukan hasil akhir export).
-function resolveCustomBasemapPreview(
-  customBasemap: { kind: string; datasource: string; name: string } | null
-): BasemapTileDef {
-  const fallback = BASEMAP_TILE_CONFIG.osm;
-  if (!customBasemap) return fallback;
-
-  if (customBasemap.kind === "external_tile") {
-    const match = customBasemap.datasource.match(/url=([^&]+)/);
-    if (match) {
-      try {
-        const decoded = decodeURIComponent(match[1]);
-        return { url: decoded, attribution: `Custom: ${customBasemap.name}` };
-      } catch {
-        return fallback;
-      }
-    }
-  }
-
-  return fallback;
-}
 
 const BASE_POINT_RADIUS = 5;
 const HOVER_POINT_RADIUS_EXTRA = 4;
@@ -588,10 +554,7 @@ function MapView({
       map.removeLayer(tileLayerRef.current);
     }
 
-    const basemapDef =
-      config.basemap === "custom"
-        ? resolveCustomBasemapPreview(config.customBasemap)
-        : BASEMAP_TILE_CONFIG[config.basemap];
+    const basemapDef = BASEMAP_TILE_CONFIG[config.basemap];
     const tileLayer = L.tileLayer(basemapDef.url, {
       attribution: basemapDef.attribution,
       maxNativeZoom: basemapDef.maxNativeZoom,
