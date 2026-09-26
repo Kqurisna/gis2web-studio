@@ -90,6 +90,7 @@ function App() {
     maxZoom: 18,
     featureDisplayMode: "card",
     customBasemap: null,
+    labelFontSize: 13,
   });
   const [basemapCandidates, setBasemapCandidates] = useState<BasemapCandidateInfo[]>([]);
   const [gdalAvailable, setGdalAvailable] = useState(false);

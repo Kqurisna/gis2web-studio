@@ -720,6 +720,12 @@ function MapView({
                     direction: "center",
                     className: "layer-feature-label",
                   });
+                  layerInstance.once("tooltipopen", (e: L.LeafletEvent) => {
+                    const tooltipEl = (e as unknown as { tooltip: L.Tooltip }).tooltip.getElement();
+                    if (tooltipEl) {
+                      tooltipEl.style.fontSize = `${config.labelFontSize}px`;
+                    }
+                  });
                 }
               }
             },

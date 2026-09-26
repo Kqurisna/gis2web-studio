@@ -1631,3 +1631,26 @@ button {
   white-space: normal;
   word-break: break-word;
 }
+
+/* Label feature di peta (mirip label QGIS: teks polos + halo tipis,
+   tanpa kotak/background seperti tooltip default Leaflet) */
+.leaflet-tooltip.layer-feature-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  color: #323232;
+  font-weight: 600;
+  font-size: 13px;
+  text-shadow:
+    -1px -1px 0 #fafafa,
+    1px -1px 0 #fafafa,
+    -1px 1px 0 #fafafa,
+    1px 1px 0 #fafafa,
+    0 0 3px #fafafa;
+  white-space: nowrap;
+}
+
+.leaflet-tooltip.layer-feature-label::before {
+  display: none;
+}

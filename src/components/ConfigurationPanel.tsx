@@ -36,6 +36,7 @@ export interface WebGisConfig {
   maxZoom: number;
   featureDisplayMode: FeatureDisplayMode;
   customBasemap: BasemapCandidateInfo | null;
+  labelFontSize: number;
 }
 
 interface ConfigurationPanelProps {
@@ -71,6 +72,8 @@ const FEATURE_DISPLAY_OPTIONS: { value: FeatureDisplayMode; label: string; hint:
 
 const ZOOM_MIN_LIMIT = 5;
 const ZOOM_MAX_LIMIT = 20;
+const LABEL_FONT_SIZE_MIN = 8;
+const LABEL_FONT_SIZE_MAX = 24;
 
 function ConfigurationPanel({
   config,
@@ -102,6 +105,10 @@ function ConfigurationPanel({
 
   function updateFeatureDisplayMode(featureDisplayMode: FeatureDisplayMode) {
     onConfigChange({ ...config, featureDisplayMode });
+  }
+
+  function updateLabelFontSize(value: number) {
+    onConfigChange({ ...config, labelFontSize: value });
   }
 
   return (
@@ -199,6 +206,22 @@ function ConfigurationPanel({
             Maximum Zoom harus lebih besar atau sama dengan Minimum Zoom.
           </p>
         )}
+
+        <div className="config-slider-block">
+          <label className="config-slider-label">Ukuran Font Label (px)</label>
+          <div className="config-slider-row">
+            <span className="config-slider-bound">{LABEL_FONT_SIZE_MIN}</span>
+            <input
+              type="range"
+              min={LABEL_FONT_SIZE_MIN}
+              max={LABEL_FONT_SIZE_MAX}
+              value={config.labelFontSize}
+              onChange={(e) => updateLabelFontSize(Number(e.target.value))}
+            />
+            <span className="config-slider-bound">{LABEL_FONT_SIZE_MAX}</span>
+          </div>
+          <div className="config-slider-value">{config.labelFontSize}px</div>
+        </div>
       </section>
 
       <section className="config-section">
