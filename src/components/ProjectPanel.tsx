@@ -37,6 +37,7 @@ interface ProjectPanelProps {
   selectedLayerIndexes: number[];
   onSelectedLayerIndexesChange: (indexes: number[]) => void;
   boundaryLayerIndex: number | null;
+  labelFontSize?: number;
   onBoundaryLayerIndexChange: (index: number | null) => void;
   layerColors: Record<number, string>;
   onLayerColorChange: (index: number, color: string) => void;
@@ -64,6 +65,7 @@ function ProjectPanel({
   onSelectedLayerIndexesChange,
   boundaryLayerIndex,
   onBoundaryLayerIndexChange,
+  labelFontSize,
   layerColors,
   onLayerColorChange,
   layerCategoryColors,
@@ -536,6 +538,7 @@ function ProjectPanel({
           categoryColorOverrides={layerCategoryColors[lastPreviewIndex]}
           name={layers[lastPreviewIndex].name}
           visible={previewIndex !== null}
+          labelFontSize={labelFontSize}
         />
       )}
     </div>

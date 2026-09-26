@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import { getCachedGeojson, fetchLayerGeojson } from "../lib/layerGeojsonCache";
-import { styleForLayer, resolveFeatureColor } from "../lib/layerStyle";
+import { styleForLayer, resolveFeatureColor, computeLabeledFeatureIndexes } from "../lib/layerStyle";
 import type { LayerInfo } from "./ProjectPanel";
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 interface LayerPreviewProps {
   projectPath: string;
@@ -12,6 +21,7 @@ interface LayerPreviewProps {
   categoryColorOverrides?: Record<string, string>;
   name: string;
   visible: boolean;
+  labelFontSize?: number;
 }
 
 function LayerPreview({
@@ -22,6 +32,7 @@ function LayerPreview({
   categoryColorOverrides,
   name,
   visible,
+  labelFontSize = 13,
 }: LayerPreviewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -82,6 +93,8 @@ function LayerPreview({
         return styleForLayer(resolvedColor, false, 0.5);
       };
 
+      const labeledFeatureIndexes = computeLabeledFeatureIndexes(layer, data);
+
       const geoLayer = L.geoJSON(data, {
         style,
         pointToLayer: (feature, latlng) => {
@@ -89,6 +102,28 @@ function LayerPreview({
             ? resolveFeatureColor(layer, categoryColorOverrides, feature, fallbackColor)
             : fallbackColor;
           return L.circleMarker(latlng, { radius: 4, color: resolvedColor, fillOpacity: 0.7 });
+        },
+        onEachFeature: (feature, layerInstance) => {
+          if (!layer.labeling) return;
+          const featureIndex = data.features.indexOf(feature);
+          if (featureIndex === -1 || !labeledFeatureIndexes.has(featureIndex)) return;
+
+          const labelValue = feature.properties?.[layer.labeling.field];
+          const labelText =
+            labelValue === null || labelValue === undefined ? "" : String(labelValue);
+          if (!labelText) return;
+
+          layerInstance.bindTooltip(escapeHtml(labelText), {
+            permanent: true,
+            direction: "center",
+            className: "layer-feature-label",
+          });
+          layerInstance.once("tooltipopen", (e: L.LeafletEvent) => {
+            const tooltipEl = (e as unknown as { tooltip: L.Tooltip }).tooltip.getElement();
+            if (tooltipEl) {
+              tooltipEl.style.fontSize = `${labelFontSize}px`;
+            }
+          });
         },
       }).addTo(mapRef.current);
       vectorLayerRef.current = geoLayer;

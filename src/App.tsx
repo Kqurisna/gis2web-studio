@@ -254,6 +254,7 @@ function App() {
                   onCollapsedChange={setAttributeTableCollapsed}
                 />
                 <ProjectPanel
+                  labelFontSize={config.labelFontSize}
                   projectPath={projectPath}
                   layers={layers}
                   hasProject={projectPath !== null}
