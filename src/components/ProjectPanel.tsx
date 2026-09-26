@@ -354,6 +354,20 @@ function ProjectPanel({
                                     {layer.categories.length} kategori{" "}
                                     {expandedLayerIndex === index ? "\u25B2" : "\u25BC"}
                                   </button>
+                                ) : layer.ranges && layer.ranges.length > 0 ? (
+                                  <button
+                                    type="button"
+                                    className="category-expand-button"
+                                    onClick={() =>
+                                      setExpandedLayerIndex(
+                                        expandedLayerIndex === index ? null : index
+                                      )
+                                    }
+                                    title="Lihat warna per rentang"
+                                  >
+                                    {layer.ranges.length} rentang{" "}
+                                    {expandedLayerIndex === index ? "\u25B2" : "\u25BC"}
+                                  </button>
                                 ) : (
                                   <input
                                     type="color"
@@ -451,6 +465,53 @@ function ProjectPanel({
                                             title={`Warna untuk ${cat.label}`}
                                           />
                                           <span className="category-item-label">{cat.label}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {selectedLayerIndexes.map((index) => {
+                          const layer = layers[index];
+                          if (
+                            !layer ||
+                            expandedLayerIndex !== index ||
+                            !layer.ranges ||
+                            layer.ranges.length === 0
+                          ) {
+                            return null;
+                          }
+                          const rangeColorMap = layerCategoryColors[index] ?? {};
+                          return (
+                            <tr key={`ranges-${index}`} className="category-subrow">
+                              <td colSpan={4} onClick={(e) => e.stopPropagation()}>
+                                <div className="category-subrow-inner">
+                                  <span className="category-subrow-title">
+                                    Warna per rentang{layer.category_field ? ` (${layer.category_field})` : ""}:
+                                  </span>
+                                  <div className="category-list">
+                                    {layer.ranges.map((range) => {
+                                      const rangeColor = rangeColorMap[range.label] ?? range.color;
+                                      return (
+                                        <div className="category-item" key={range.label}>
+                                          <input
+                                            type="color"
+                                            value={rangeColor}
+                                            onChange={(e) =>
+                                              onLayerCategoryColorChange(
+                                                index,
+                                                range.label,
+                                                e.target.value
+                                              )
+                                            }
+                                            title={`Warna untuk ${range.label} (${range.lower} - ${range.upper})`}
+                                          />
+                                          <span className="category-item-label">
+                                            {range.label} ({range.lower} - {range.upper})
+                                          </span>
                                         </div>
                                       );
                                     })}
