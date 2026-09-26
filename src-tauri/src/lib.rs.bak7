@@ -25,20 +25,6 @@ struct GraduatedRangeInfo {
 }
 
 #[derive(Serialize, Clone, Debug)]
-struct LabelingInfo {
-    field: String,
-    group_by_field: Option<String>,
-}
-
-fn extract_group_by_field(filter_expr: &str) -> Option<String> {
-    let marker = "group_by:=\"";
-    let start = filter_expr.find(marker)? + marker.len();
-    let rest = &filter_expr[start..];
-    let end = rest.find('"')?;
-    Some(rest[..end].to_string())
-}
-
-#[derive(Serialize, Clone, Debug)]
 struct LayerInfo {
     name: String,
     geometry_type: String,
@@ -47,7 +33,6 @@ struct LayerInfo {
     category_field: Option<String>,
     categories: Option<Vec<CategoryInfo>>,
     ranges: Option<Vec<GraduatedRangeInfo>>,
-    labeling: Option<LabelingInfo>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -297,10 +282,6 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
     let mut in_current_symbol_layer = false;
     let mut in_ranges = false;
     let mut range_defs: Vec<(String, f64, f64, String)> = Vec::new(); // (symbol_id, lower, upper, label)
-    let mut in_labeling = false;
-    let mut labeling_type: Option<String> = None;
-    let mut current_label_field: Option<String> = None;
-    let mut current_label_group_by: Option<String> = None;
 
     loop {
         match reader.read_event_into(&mut buf) {
@@ -324,10 +305,6 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                 in_current_symbol_layer = false;
                 in_ranges = false;
                 range_defs = Vec::new();
-                in_labeling = false;
-                labeling_type = None;
-                current_label_field = None;
-                current_label_group_by = None;
 
                 for attr_result in e.attributes() {
                     if let Ok(attr) = attr_result {
@@ -348,54 +325,6 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
             }
             Ok(Event::Start(e)) if in_maplayer && e.name().as_ref() == b"datasource" => {
                 in_datasource = true;
-            }
-            Ok(Event::Start(e)) if in_maplayer && e.name().as_ref() == b"labeling" => {
-                in_labeling = true;
-                for attr_result in e.attributes() {
-                    if let Ok(attr) = attr_result {
-                        if attr.key.as_ref() == b"type" {
-                            if let Ok(v) = attr.unescape_value() {
-                                labeling_type = Some(v.to_string());
-                            }
-                        }
-                    }
-                }
-            }
-            Ok(Event::End(e)) if e.name().as_ref() == b"labeling" => {
-                in_labeling = false;
-            }
-            Ok(Event::Start(e)) | Ok(Event::Empty(e))
-                if in_labeling
-                    && labeling_type.as_deref() == Some("rule-based")
-                    && current_label_group_by.is_none()
-                    && e.name().as_ref() == b"rule" =>
-            {
-                for attr_result in e.attributes() {
-                    if let Ok(attr) = attr_result {
-                        if attr.key.as_ref() == b"filter" {
-                            if let Ok(v) = attr.unescape_value() {
-                                current_label_group_by = extract_group_by_field(&v);
-                            }
-                        }
-                    }
-                }
-            }
-            Ok(Event::Start(e)) | Ok(Event::Empty(e))
-                if in_labeling
-                    && current_label_field.is_none()
-                    && e.name().as_ref() == b"text-style" =>
-            {
-                for attr_result in e.attributes() {
-                    if let Ok(attr) = attr_result {
-                        if attr.key.as_ref() == b"fieldName" {
-                            if let Ok(v) = attr.unescape_value() {
-                                if !v.is_empty() {
-                                    current_label_field = Some(v.to_string());
-                                }
-                            }
-                        }
-                    }
-                }
             }
             Ok(Event::Start(e)) if in_maplayer && e.name().as_ref() == b"renderer-v2" => {
                 in_renderer = true;
@@ -713,11 +642,6 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                         Some(result)
                     };
 
-                    let final_labeling = current_label_field.take().map(|field| LabelingInfo {
-                        field,
-                        group_by_field: current_label_group_by.take(),
-                    });
-
                     layers.push(LayerInfo {
                         name,
                         geometry_type: current_geometry.clone(),
@@ -726,7 +650,6 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                         category_field: current_category_field.take(),
                         categories: final_categories,
                         ranges: final_ranges,
-                        labeling: final_labeling,
                     });
                 }
                 in_maplayer = false;
