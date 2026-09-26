@@ -17,14 +17,6 @@ struct CategoryInfo {
 }
 
 #[derive(Serialize, Clone, Debug)]
-struct GraduatedRangeInfo {
-    lower: f64,
-    upper: f64,
-    label: String,
-    color: String,
-}
-
-#[derive(Serialize, Clone, Debug)]
 struct LayerInfo {
     name: String,
     geometry_type: String,
@@ -32,7 +24,6 @@ struct LayerInfo {
     color: Option<String>,
     category_field: Option<String>,
     categories: Option<Vec<CategoryInfo>>,
-    ranges: Option<Vec<GraduatedRangeInfo>>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -280,8 +271,6 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
     let mut in_symbols = false;
     let mut current_symbol_id: Option<String> = None;
     let mut in_current_symbol_layer = false;
-    let mut in_ranges = false;
-    let mut range_defs: Vec<(String, f64, f64, String)> = Vec::new(); // (symbol_id, lower, upper, label)
 
     loop {
         match reader.read_event_into(&mut buf) {
@@ -303,8 +292,6 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                 in_symbols = false;
                 current_symbol_id = None;
                 in_current_symbol_layer = false;
-                in_ranges = false;
-                range_defs = Vec::new();
 
                 for attr_result in e.attributes() {
                     if let Ok(attr) = attr_result {
@@ -350,53 +337,6 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
             {
                 in_categories = true;
             }
-            Ok(Event::Start(e))
-                if in_renderer
-                    && renderer_type.as_deref() == Some("graduatedSymbol")
-                    && e.name().as_ref() == b"ranges" =>
-            {
-                in_ranges = true;
-            }
-            Ok(Event::End(e)) if e.name().as_ref() == b"ranges" => {
-                in_ranges = false;
-            }
-            Ok(Event::Empty(e)) if in_ranges && e.name().as_ref() == b"range" => {
-                let mut r_lower: Option<f64> = None;
-                let mut r_upper: Option<f64> = None;
-                let mut r_label: Option<String> = None;
-                let mut r_symbol: Option<String> = None;
-                for attr_result in e.attributes() {
-                    if let Ok(attr) = attr_result {
-                        match attr.key.as_ref() {
-                            b"lower" => {
-                                if let Ok(v) = attr.unescape_value() {
-                                    r_lower = v.parse::<f64>().ok();
-                                }
-                            }
-                            b"upper" => {
-                                if let Ok(v) = attr.unescape_value() {
-                                    r_upper = v.parse::<f64>().ok();
-                                }
-                            }
-                            b"label" => {
-                                if let Ok(v) = attr.unescape_value() {
-                                    r_label = Some(v.to_string());
-                                }
-                            }
-                            b"symbol" => {
-                                if let Ok(v) = attr.unescape_value() {
-                                    r_symbol = Some(v.to_string());
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                if let (Some(sym), Some(lo), Some(hi)) = (r_symbol, r_lower, r_upper) {
-                    let label = r_label.unwrap_or_else(|| format!("{lo} - {hi}"));
-                    range_defs.push((sym, lo, hi, label));
-                }
-            }
             Ok(Event::End(e)) if e.name().as_ref() == b"categories" => {
                 in_categories = false;
             }
@@ -441,8 +381,7 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
             }
             Ok(Event::Start(e))
                 if in_renderer
-                    && (renderer_type.as_deref() == Some("categorizedSymbol")
-                        || renderer_type.as_deref() == Some("graduatedSymbol"))
+                    && renderer_type.as_deref() == Some("categorizedSymbol")
                     && e.name().as_ref() == b"symbols" =>
             {
                 in_symbols = true;
@@ -623,25 +562,6 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                         Some(result)
                     };
 
-                    let final_ranges = if range_defs.is_empty() {
-                        None
-                    } else {
-                        let mut result = Vec::new();
-                        for (sym_id, lo, hi, label) in &range_defs {
-                            let color = symbol_colors
-                                .get(sym_id)
-                                .cloned()
-                                .unwrap_or_else(|| "#9ca3af".to_string());
-                            result.push(GraduatedRangeInfo {
-                                lower: *lo,
-                                upper: *hi,
-                                label: label.clone(),
-                                color,
-                            });
-                        }
-                        Some(result)
-                    };
-
                     layers.push(LayerInfo {
                         name,
                         geometry_type: current_geometry.clone(),
@@ -649,7 +569,6 @@ fn parse_layers(xml_content: &str) -> Result<Vec<LayerInfo>, String> {
                         color: current_color.take(),
                         category_field: current_category_field.take(),
                         categories: final_categories,
-                        ranges: final_ranges,
                     });
                 }
                 in_maplayer = false;
