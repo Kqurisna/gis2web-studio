@@ -136,44 +136,6 @@ fn check_gdal_available() -> bool {
         .unwrap_or(false)
 }
 
-#[tauri::command]
-fn generate_tile_pyramid(
-    raster_path: String,
-    output_dir: String,
-    min_zoom: u32,
-    max_zoom: u32,
-) -> Result<String, String> {
-    let raster = Path::new(&raster_path);
-    if !raster.exists() {
-        return Err(format!("File raster tidak ditemukan: {raster_path}"));
-    }
-
-    let tiles_dir = Path::new(&output_dir).join("tiles");
-    std::fs::create_dir_all(&tiles_dir)
-        .map_err(|e| format!("Gagal membuat folder tiles: {e}"))?;
-
-    let zoom_arg = format!("{min_zoom}-{max_zoom}");
-
-    let output = Command::new("gdal2tiles.py")
-        .arg("-p")
-        .arg("mercator")
-        .arg("-z")
-        .arg(&zoom_arg)
-        .arg("-w")
-        .arg("none")
-        .arg(&raster_path)
-        .arg(tiles_dir.to_string_lossy().to_string())
-        .output()
-        .map_err(|e| format!("Gagal menjalankan gdal2tiles.py: {e}. Pastikan GDAL terinstall dan ada di PATH."))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("gdal2tiles.py gagal: {stderr}"));
-    }
-
-    Ok(tiles_dir.to_string_lossy().to_string())
-}
-
 fn rgba_string_to_hex(value: &str) -> Option<String> {
     let parts: Vec<&str> = value.split(',').collect();
     if parts.len() < 3 {
@@ -1920,7 +1882,6 @@ pub fn run() {
             parse_qgis_project,
             parse_qgis_basemap_candidates,
             check_gdal_available,
-            generate_tile_pyramid,
             get_layer_geojson,
             export_web_gis
         ])
