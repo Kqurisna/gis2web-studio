@@ -58,6 +58,7 @@ function App() {
 
   const [projectPath, setProjectPath] = useState<string | null>(null);
   const [layers, setLayers] = useState<LayerInfo[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
   const [selectedLayerIndexes, setSelectedLayerIndexes] = useState<number[]>([]);
   const [boundaryLayerIndex, setBoundaryLayerIndex] = useState<number | null>(null);
   const [layerColors, setLayerColors] = useState<Record<number, string>>({});
@@ -213,6 +214,7 @@ function App() {
                 onBoundaryLayerIndexChange={handleBoundaryLayerIndexChange}
                 onBasemapCandidatesLoaded={setBasemapCandidates}
                 onGdalAvailabilityChecked={setGdalAvailable}
+                onImportingChange={setIsImporting}
               />
               <div className="project-map-layout">
                 <MapView
@@ -258,6 +260,7 @@ function App() {
                   projectPath={projectPath}
                   layers={layers}
                   hasProject={projectPath !== null}
+                  isImporting={isImporting}
                   selectedLayerIndexes={selectedLayerIndexes}
                   onSelectedLayerIndexesChange={setSelectedLayerIndexes}
                   boundaryLayerIndex={boundaryLayerIndex}

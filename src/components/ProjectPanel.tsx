@@ -34,6 +34,7 @@ interface ProjectPanelProps {
   projectPath: string | null;
   layers: LayerInfo[];
   hasProject: boolean;
+  isImporting: boolean;
   selectedLayerIndexes: number[];
   onSelectedLayerIndexesChange: (indexes: number[]) => void;
   boundaryLayerIndex: number | null;
@@ -61,6 +62,7 @@ function ProjectPanel({
   projectPath,
   layers,
   hasProject,
+  isImporting,
   selectedLayerIndexes,
   onSelectedLayerIndexesChange,
   boundaryLayerIndex,
@@ -177,7 +179,17 @@ function ProjectPanel({
       {!collapsed && (
         <div className="layer-overlay-body">
           <div className="project-panel">
-            {!hasProject && (
+            {isImporting && (
+              <div className="project-empty-state">
+                <p className="project-empty-title">Memuat layer...</p>
+                <p className="project-empty-text">
+                  Sedang menyiapkan data layer dari project QGIS. Mohon tunggu
+                  sebentar.
+                </p>
+              </div>
+            )}
+
+            {!isImporting && !hasProject && (
               <div className="project-empty-state">
                 <div className="project-empty-icon">
                   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -192,7 +204,7 @@ function ProjectPanel({
               </div>
             )}
 
-            {layers.length > 0 && (
+            {!isImporting && layers.length > 0 && (
               <div className="layer-list">
                 <div className="project-panel-tabs">
                   <button

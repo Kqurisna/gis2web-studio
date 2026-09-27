@@ -13,6 +13,7 @@ interface ImportToolbarProps {
   onBoundaryLayerIndexChange: (index: number | null) => void;
   onBasemapCandidatesLoaded?: (candidates: BasemapCandidateInfo[]) => void;
   onGdalAvailabilityChecked?: (available: boolean) => void;
+  onImportingChange?: (importing: boolean) => void;
 }
 
 function ImportToolbar({
@@ -23,6 +24,7 @@ function ImportToolbar({
   onBoundaryLayerIndexChange,
   onBasemapCandidatesLoaded,
   onGdalAvailabilityChecked,
+  onImportingChange,
 }: ImportToolbarProps) {
   const [loading, setLoading] = useState(false);
   const [loadingLabel, setLoadingLabel] = useState("Membaca project...");
@@ -30,6 +32,7 @@ function ImportToolbar({
 
   async function handleImport() {
     setError(null);
+    onImportingChange?.(true);
     const selected = await open({
       multiple: false,
       filters: [{ name: "QGIS Project", extensions: ["qgz", "qgs"] }],
@@ -87,6 +90,7 @@ function ImportToolbar({
       onLayersLoaded([]);
     } finally {
       setLoading(false);
+      onImportingChange?.(false);
     }
   }
 
