@@ -1440,6 +1440,26 @@ fn build_style_css() -> String {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.leaflet-tooltip.layer-feature-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  color: #323232;
+  font-weight: 600;
+  text-shadow:
+    -1px -1px 0 #fafafa,
+    1px -1px 0 #fafafa,
+    -1px 1px 0 #fafafa,
+    1px 1px 0 #fafafa,
+    0 0 3px #fafafa;
+  white-space: nowrap;
+}
+
+.leaflet-tooltip.layer-feature-label::before {
+  display: none;
+}
 "#.to_string()
 }
 
@@ -1949,6 +1969,42 @@ function renderLayerTogglePanel() {{
   }});
 }}
 
+// Meniru filter QGIS "$area = maximum($area, group_by:=...)": hanya 1
+// feature per grup (yang luasnya paling besar) yang diberi label. Kalau
+// layer tidak punya groupByField, semua feature yang bernilai dianggap
+// berhak (labeling QGIS type="simple" tampil di semua feature).
+function computeLabeledFeatureIndexes(layer, geojson) {{
+  const result = new Set();
+  if (!layer.labeling) return result;
+
+  const groupByField = layer.labeling.groupByField;
+  if (!groupByField) {{
+    geojson.features.forEach((_, idx) => result.add(idx));
+    return result;
+  }}
+
+  const largestByGroup = {{}};
+  geojson.features.forEach((feature, idx) => {{
+    const rawGroupValue = feature.properties ? feature.properties[groupByField] : undefined;
+    const groupKey = rawGroupValue === null || rawGroupValue === undefined ? 'NULL' : String(rawGroupValue);
+
+    let featureArea = 0;
+    try {{
+      featureArea = turf.area(feature);
+    }} catch (e) {{
+      featureArea = 0;
+    }}
+
+    const current = largestByGroup[groupKey];
+    if (!current || featureArea > current.area) {{
+      largestByGroup[groupKey] = {{ index: idx, area: featureArea }};
+    }}
+  }});
+
+  Object.values(largestByGroup).forEach(({{ index }}) => result.add(index));
+  return result;
+}}
+
 function loadLayer(layer) {{
   return fetch(layer.file)
     .then((res) => res.json())
@@ -1961,6 +2017,8 @@ function loadLayer(layer) {{
         fillOpacity: layer.isBoundary ? 0 : layer.opacity,
       }});
       layerStyleFns[layer.layerIndex] = styleFn;
+
+      const labeledFeatureIndexes = computeLabeledFeatureIndexes(layer, geojson);
 
       const gLayer = L.geoJSON(geojson, {{
         style: styleFn,
@@ -1981,6 +2039,24 @@ function loadLayer(layer) {{
 
           if (featureIndex !== -1) {{
             featureLayerRefs[layer.layerIndex + ':' + featureIndex] = layerInstance;
+          }}
+
+          if (layer.labeling && featureIndex !== -1 && labeledFeatureIndexes.has(featureIndex)) {{
+            const labelValue = properties ? properties[layer.labeling.field] : undefined;
+            const labelText = labelValue === null || labelValue === undefined ? '' : String(labelValue);
+            if (labelText) {{
+              layerInstance.bindTooltip(escapeHtml(labelText), {{
+                permanent: true,
+                direction: 'center',
+                className: 'layer-feature-label',
+              }});
+              layerInstance.once('tooltipopen', (e) => {{
+                const tooltipEl = e.tooltip.getElement();
+                if (tooltipEl) {{
+                  tooltipEl.style.fontSize = (CONFIG.labelFontSize || 13) + 'px';
+                }}
+              }});
+            }}
           }}
         }},
       }}).addTo(map);
