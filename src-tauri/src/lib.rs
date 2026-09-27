@@ -1478,13 +1478,24 @@ function escapeHtml(value) {{
 // pakai warna solid layer. Ini nilai FINAL, tidak ada UI untuk mengubahnya
 // di hasil export.
 function resolveFeatureColor(layer, feature) {{
-  if (!layer.categoryField || !layer.categories || layer.categories.length === 0) {{
+  if (layer.categoryField && layer.categories && layer.categories.length > 0) {{
+    const raw = feature && feature.properties ? feature.properties[layer.categoryField] : undefined;
+    const valueKey = raw === null || raw === undefined ? 'NULL' : String(raw);
+    const match = layer.categories.find((c) => c.value === valueKey);
+    return match ? match.color : layer.color;
+  }}
+
+  if (layer.categoryField && layer.ranges && layer.ranges.length > 0) {{
+    const raw = feature && feature.properties ? feature.properties[layer.categoryField] : undefined;
+    const numericValue = typeof raw === 'number' ? raw : parseFloat(raw);
+    if (!Number.isNaN(numericValue)) {{
+      const match = layer.ranges.find((r) => numericValue >= r.lower && numericValue <= r.upper);
+      if (match) return match.color;
+    }}
     return layer.color;
   }}
-  const raw = feature && feature.properties ? feature.properties[layer.categoryField] : undefined;
-  const valueKey = raw === null || raw === undefined ? 'NULL' : String(raw);
-  const match = layer.categories.find((c) => c.value === valueKey);
-  return match ? match.color : layer.color;
+
+  return layer.color;
 }}
 
 function buildFieldsTable(properties, visibleFields) {{
