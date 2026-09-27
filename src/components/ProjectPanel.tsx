@@ -35,6 +35,7 @@ interface ProjectPanelProps {
   layers: LayerInfo[];
   hasProject: boolean;
   isImporting: boolean;
+  importingLabel?: string;
   selectedLayerIndexes: number[];
   onSelectedLayerIndexesChange: (indexes: number[]) => void;
   boundaryLayerIndex: number | null;
@@ -63,6 +64,7 @@ function ProjectPanel({
   layers,
   hasProject,
   isImporting,
+  importingLabel,
   selectedLayerIndexes,
   onSelectedLayerIndexesChange,
   boundaryLayerIndex,
@@ -181,7 +183,7 @@ function ProjectPanel({
           <div className="project-panel">
             {isImporting && (
               <div className="project-empty-state">
-                <p className="project-empty-title">Memuat layer...</p>
+                <p className="project-empty-title">{importingLabel || "Memuat layer..."}</p>
                 <p className="project-empty-text">
                   Sedang menyiapkan data layer dari project QGIS. Mohon tunggu
                   sebentar.

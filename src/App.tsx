@@ -59,6 +59,7 @@ function App() {
   const [projectPath, setProjectPath] = useState<string | null>(null);
   const [layers, setLayers] = useState<LayerInfo[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [importingLabel, setImportingLabel] = useState("Memuat layer...");
   const [selectedLayerIndexes, setSelectedLayerIndexes] = useState<number[]>([]);
   const [boundaryLayerIndex, setBoundaryLayerIndex] = useState<number | null>(null);
   const [layerColors, setLayerColors] = useState<Record<number, string>>({});
@@ -215,6 +216,7 @@ function App() {
                 onBasemapCandidatesLoaded={setBasemapCandidates}
                 onGdalAvailabilityChecked={setGdalAvailable}
                 onImportingChange={setIsImporting}
+                onImportingLabelChange={setImportingLabel}
               />
               <div className="project-map-layout">
                 <MapView
@@ -261,6 +263,7 @@ function App() {
                   layers={layers}
                   hasProject={projectPath !== null}
                   isImporting={isImporting}
+                  importingLabel={importingLabel}
                   selectedLayerIndexes={selectedLayerIndexes}
                   onSelectedLayerIndexesChange={setSelectedLayerIndexes}
                   boundaryLayerIndex={boundaryLayerIndex}

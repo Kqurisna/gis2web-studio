@@ -14,6 +14,7 @@ interface ImportToolbarProps {
   onBasemapCandidatesLoaded?: (candidates: BasemapCandidateInfo[]) => void;
   onGdalAvailabilityChecked?: (available: boolean) => void;
   onImportingChange?: (importing: boolean) => void;
+  onImportingLabelChange?: (label: string) => void;
 }
 
 function ImportToolbar({
@@ -25,6 +26,7 @@ function ImportToolbar({
   onBasemapCandidatesLoaded,
   onGdalAvailabilityChecked,
   onImportingChange,
+  onImportingLabelChange,
 }: ImportToolbarProps) {
   const [loading, setLoading] = useState(false);
   const [loadingLabel, setLoadingLabel] = useState("Membaca project...");
@@ -43,6 +45,7 @@ function ImportToolbar({
     onProjectPathChange(selected);
     setLoading(true);
     setLoadingLabel("Membaca project...");
+    onImportingLabelChange?.("Membaca project...");
     clearLayerGeojsonCache();
 
     try {
@@ -76,6 +79,7 @@ function ImportToolbar({
       // tombol Import tetap loading lebih lama, tapi itu memang tujuannya.
       if (result.length > 0) {
         setLoadingLabel(`Menyiapkan preview ${result.length} layer...`);
+        onImportingLabelChange?.(`Menyiapkan preview ${result.length} layer...`);
         await prefetchAllLayers(
           selected,
           result.map((l) => l.datasource)
