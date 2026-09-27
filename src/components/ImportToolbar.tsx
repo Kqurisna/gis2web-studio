@@ -46,9 +46,6 @@ function ImportToolbar({
       const result = await invoke<LayerInfo[]>("parse_qgis_project", {
         path: selected,
       });
-      onLayersLoaded(result);
-      onSelectedLayerIndexesChange([]);
-      onBoundaryLayerIndexChange(null);
 
       // Basemap candidates & GDAL check bersifat pelengkap (bukan syarat
       // import berhasil). Kalau gagal, cukup kosongkan/anggap tidak
@@ -70,6 +67,10 @@ function ImportToolbar({
         onGdalAvailabilityChecked?.(false);
       }
 
+      // Panel Layers (dan preview-nya) baru ditampilkan setelah SEMUA data
+      // geojson layer selesai dimuat ke cache, supaya begitu panel muncul,
+      // user bisa langsung preview tanpa menunggu fetch lagi. Konsekuensinya
+      // tombol Import tetap loading lebih lama, tapi itu memang tujuannya.
       if (result.length > 0) {
         setLoadingLabel(`Menyiapkan preview ${result.length} layer...`);
         await prefetchAllLayers(
@@ -77,6 +78,10 @@ function ImportToolbar({
           result.map((l) => l.datasource)
         );
       }
+
+      onLayersLoaded(result);
+      onSelectedLayerIndexesChange([]);
+      onBoundaryLayerIndexChange(null);
     } catch (err) {
       setError(String(err));
       onLayersLoaded([]);

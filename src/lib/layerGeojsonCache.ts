@@ -48,13 +48,34 @@ export function fetchLayerGeojson(
   return promise;
 }
 
+// Membatasi jumlah konversi paralel (ogr2ogr) yang berjalan bersamaan.
+// Menjalankan semua layer sekaligus tanpa batas justru bisa membuat total
+// waktu loading lebih lambat karena CPU/disk I/O rebutan resource, terutama
+// untuk project dengan banyak layer atau file besar.
+const PREFETCH_CONCURRENCY = 3;
+
 export async function prefetchAllLayers(
   projectPath: string,
   datasources: string[],
 ): Promise<void> {
-  await Promise.allSettled(
-    datasources.map((ds) => fetchLayerGeojson(projectPath, ds)),
-  );
+  const queue = [...datasources];
+
+  async function worker() {
+    while (queue.length > 0) {
+      const ds = queue.shift();
+      if (ds === undefined) break;
+      try {
+        await fetchLayerGeojson(projectPath, ds);
+      } catch {
+        // Kegagalan satu layer tidak menghentikan layer lain; error asli
+        // tetap tersimpan di cache "inFlight" rejection dan akan muncul
+        // lagi saat komponen preview memanggil fetchLayerGeojson ulang.
+      }
+    }
+  }
+
+  const workerCount = Math.min(PREFETCH_CONCURRENCY, datasources.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
 }
 
 export function clearLayerGeojsonCache(): void {
