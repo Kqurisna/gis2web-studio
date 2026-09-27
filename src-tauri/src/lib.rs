@@ -2047,6 +2047,27 @@ fn export_web_gis(
                 .collect::<Vec<_>>()
         });
 
+        let ranges_json = layer.ranges.as_ref().map(|ranges| {
+            ranges
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "lower": r.lower,
+                        "upper": r.upper,
+                        "label": r.label,
+                        "color": r.color,
+                    })
+                })
+                .collect::<Vec<_>>()
+        });
+
+        let labeling_json = layer.labeling.as_ref().map(|l| {
+            serde_json::json!({
+                "field": l.field,
+                "groupByField": l.group_by_field,
+            })
+        });
+
         layer_entries.push(serde_json::json!({
             "layerIndex": layer.layer_index,
             "file": format!("data/{file_name}"),
@@ -2057,6 +2078,8 @@ fn export_web_gis(
             "pointSize": layer.point_size,
             "categoryField": layer.category_field,
             "categories": categories_json,
+            "ranges": ranges_json,
+            "labeling": labeling_json,
             "visibleFields": layer.visible_fields,
             "isBoundary": layer.is_boundary,
             "showAttributeTable": layer.show_attribute_table,
