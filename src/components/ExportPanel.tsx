@@ -25,6 +25,18 @@ interface ExportCategoryInput {
   color: string;
 }
 
+interface ExportRangeInput {
+  lower: number;
+  upper: number;
+  label: string;
+  color: string;
+}
+
+interface ExportLabelingInput {
+  field: string;
+  group_by_field: string | null;
+}
+
 interface ExportLayerInput {
   layer_index: number;
   name: string;
@@ -35,6 +47,8 @@ interface ExportLayerInput {
   point_size: number;
   category_field: string | null;
   categories: ExportCategoryInput[] | null;
+  ranges: ExportRangeInput[] | null;
+  labeling: ExportLabelingInput | null;
   visible_fields: string[] | null;
   is_boundary: boolean;
   show_attribute_table: boolean;
@@ -146,6 +160,18 @@ function ExportPanel({
                 color: categoryOverrides?.[cat.value] ?? cat.color,
               }))
             : null;
+        const ranges: ExportRangeInput[] | null =
+          layer.ranges && layer.ranges.length > 0
+            ? layer.ranges.map((range) => ({
+                lower: range.lower,
+                upper: range.upper,
+                label: range.label,
+                color: categoryOverrides?.[range.label] ?? range.color,
+              }))
+            : null;
+        const labeling: ExportLabelingInput | null = layer.labeling
+          ? { field: layer.labeling.field, group_by_field: layer.labeling.group_by_field }
+          : null;
 
         return {
           layer_index: index,
@@ -157,6 +183,8 @@ function ExportPanel({
           point_size: layerPointSizes[index] ?? 5,
           category_field: layer.category_field,
           categories,
+          ranges,
+          labeling,
           visible_fields: layerVisibleFields[index] ?? null,
           is_boundary: isBoundary,
           show_attribute_table: layerAttributeTableEnabled[index] ?? false,

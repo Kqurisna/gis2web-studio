@@ -973,6 +973,20 @@ struct ExportCategoryInput {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+struct ExportRangeInput {
+    lower: f64,
+    upper: f64,
+    label: String,
+    color: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+struct ExportLabelingInput {
+    field: String,
+    group_by_field: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
 struct ExportLayerInput {
     layer_index: usize,
     name: String,
@@ -983,6 +997,8 @@ struct ExportLayerInput {
     point_size: f64,
     category_field: Option<String>,
     categories: Option<Vec<ExportCategoryInput>>,
+    ranges: Option<Vec<ExportRangeInput>>,
+    labeling: Option<ExportLabelingInput>,
     visible_fields: Option<Vec<String>>,
     is_boundary: bool,
     show_attribute_table: bool,
