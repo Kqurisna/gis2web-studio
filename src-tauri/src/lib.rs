@@ -1013,6 +1013,7 @@ struct ExportConfig {
     tile_url: String,
     attribution: String,
     feature_display_mode: String,
+    label_font_size: f64,
 }
 
 fn build_index_html() -> String {
@@ -2099,6 +2100,7 @@ fn export_web_gis(
 
     let config_json = serde_json::json!({
         "layers": layer_entries,
+        "labelFontSize": config.label_font_size,
         "basemap": {
             "url": config.tile_url,
             "attribution": config.attribution,

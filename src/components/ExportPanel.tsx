@@ -204,6 +204,7 @@ function ExportPanel({
           tile_url: basemapResolved.tile_url,
           attribution: basemapResolved.attribution,
           feature_display_mode: config.featureDisplayMode,
+          label_font_size: config.labelFontSize,
         },
       });
       setResultMessage(message);
