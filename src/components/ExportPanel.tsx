@@ -3,7 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import type { LayerInfo } from "./ProjectPanel";
 import type { WebGisConfig } from "./ConfigurationPanel";
-import { BASEMAP_TILE_INFO } from "./ConfigurationPanel";
+import { BASEMAP_TILE_INFO, BASEMAP_OPTIONS, FEATURE_DISPLAY_OPTIONS } from "./ConfigurationPanel";
 
 interface ExportPanelProps {
   projectPath: string | null;
@@ -215,6 +215,27 @@ function ExportPanel({
     }
   }
 
+  const previewIndexesSet = new Set([
+    ...selectedLayerIndexes,
+    ...(boundaryLayerIndex !== null ? [boundaryLayerIndex] : []),
+  ]);
+  const previewLayerNames = [
+    ...layerOrder.filter((idx) => previewIndexesSet.has(idx)),
+    ...Array.from(previewIndexesSet).filter((idx) => !layerOrder.includes(idx)),
+  ]
+    .map((idx) => layers[idx])
+    .filter((layer): layer is LayerInfo => Boolean(layer))
+    .map((layer) => layer.name);
+
+  const basemapLabel =
+    config.basemap === "custom"
+      ? config.customBasemap?.name ?? "Custom (belum dipilih)"
+      : BASEMAP_OPTIONS.find((o) => o.value === config.basemap)?.label ?? config.basemap;
+
+  const featureDisplayLabel =
+    FEATURE_DISPLAY_OPTIONS.find((o) => o.value === config.featureDisplayMode)?.label ??
+    config.featureDisplayMode;
+
   return (
     <div className="export-panel">
       <section className="config-section">
@@ -227,6 +248,25 @@ function ExportPanel({
             ? layers[boundaryLayerIndex]?.name
             : "(belum dipilih)"}
         </p>
+      </section>
+
+      <section className="config-section">
+        <h3>Preview Export</h3>
+        {previewLayerNames.length > 0 ? (
+          <>
+            <p>Layer ({previewLayerNames.length}):</p>
+            <ul className="export-preview-list">
+              {previewLayerNames.map((name, i) => (
+                <li key={i}>{name}</li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="config-static-value">Belum ada layer dipilih.</p>
+        )}
+        <p>Basemap: {basemapLabel}</p>
+        <p>Zoom: {config.minZoom} — {config.maxZoom}</p>
+        <p>Feature Display: {featureDisplayLabel}</p>
       </section>
 
       <section className="config-section">

@@ -46,13 +46,13 @@ interface ConfigurationPanelProps {
   gdalAvailable?: boolean;
 }
 
-const BASEMAP_OPTIONS: { value: BasemapOption; label: string }[] = [
+export const BASEMAP_OPTIONS: { value: BasemapOption; label: string }[] = [
   { value: "osm", label: "OpenStreetMap" },
   { value: "satellite", label: "Satellite (Esri World Imagery)" },
   { value: "topo", label: "Topographic (OpenTopoMap)" },
 ];
 
-const FEATURE_DISPLAY_OPTIONS: { value: FeatureDisplayMode; label: string; hint: string }[] = [
+export const FEATURE_DISPLAY_OPTIONS: { value: FeatureDisplayMode; label: string; hint: string }[] = [
   {
     value: "card",
     label: "Hanya Card",
