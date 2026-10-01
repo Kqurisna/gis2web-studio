@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import ExportPreviewMap from "./ExportPreviewMap";
 import { invoke } from "@tauri-apps/api/core";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { tempDir, join } from "@tauri-apps/api/path";
 import type { LayerInfo } from "./ProjectPanel";
 import type { WebGisConfig } from "./ConfigurationPanel";
 import { BASEMAP_TILE_INFO, BASEMAP_OPTIONS, FEATURE_DISPLAY_OPTIONS } from "./ConfigurationPanel";
@@ -117,10 +116,7 @@ function ExportPanel({
   const [exporting, setExporting] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [previewMode, setPreviewMode] = useState<"ringkasan" | "html">("ringkasan");
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<"ringkasan" | "peta">("ringkasan");
 
   const canExport =
     projectPath !== null &&
@@ -187,49 +183,6 @@ function ExportPanel({
           show_attribute_table: layerAttributeTableEnabled[index] ?? false,
         };
       });
-  }
-
-  // Preview HTML: export sungguhan (reuse export_web_gis) tapi ke folder
-  // temp tetap ($TEMP/gis2web_preview), BUKAN ke outputDir pilihan user.
-  // Hanya dijalankan saat user klik tombol "Preview HTML", supaya proses
-  // I/O berat ini tidak terjadi otomatis setiap kali config berubah.
-  async function handlePreviewHtml() {
-    if (!projectPath) return;
-
-    setPreviewLoading(true);
-    setPreviewError(null);
-
-    try {
-      const base = await tempDir();
-      const previewDir = await join(base, "gis2web_preview");
-      const exportLayers = buildExportLayers();
-      const basemapResolved = await resolveExportBasemap(config, previewDir);
-
-      await invoke<string>("export_web_gis", {
-        projectPath,
-        outputDir: previewDir,
-        layers: exportLayers,
-        config: {
-          basemap: config.basemap,
-          min_zoom: config.minZoom,
-          max_zoom: config.maxZoom,
-          tile_url: basemapResolved.tile_url,
-          attribution: basemapResolved.attribution,
-          feature_display_mode: config.featureDisplayMode,
-          label_font_size: config.labelFontSize,
-        },
-      });
-
-      const indexPath = await join(previewDir, "index.html");
-      // Cache-bust supaya iframe reload isi baru, bukan versi lama yang
-      // sudah pernah dimuat webview untuk path yang sama.
-      setPreviewUrl(`${convertFileSrc(indexPath)}?t=${Date.now()}`);
-      setPreviewMode("html");
-    } catch (err) {
-      setPreviewError(String(err));
-    } finally {
-      setPreviewLoading(false);
-    }
   }
 
   async function handleExport() {
@@ -362,11 +315,11 @@ function ExportPanel({
         </button>
         <button
           type="button"
-          className={"export-preview-tab" + (previewMode === "html" ? " active" : "")}
-          onClick={handlePreviewHtml}
-          disabled={!projectPath || previewLoading}
+          className={"export-preview-tab" + (previewMode === "peta" ? " active" : "")}
+          onClick={() => setPreviewMode("peta")}
+          disabled={!projectPath}
         >
-          {previewLoading ? "Membuat preview..." : "Preview HTML"}
+          Preview Peta
         </button>
       </div>
 
@@ -374,23 +327,24 @@ function ExportPanel({
         <div className="export-preview-placeholder">
           <p>Preview ringkasan ditampilkan di panel kiri.</p>
           <p className="config-static-value">
-            Klik "Preview HTML" untuk melihat tampilan hasil export sesungguhnya.
+            Klik "Preview Peta" untuk melihat tampilan layer terpilih di peta.
           </p>
         </div>
       )}
 
-      {previewMode === "html" && (
-        <>
-          {previewError && <p className="project-error">Error: {previewError}</p>}
-          {previewUrl && !previewError && (
-            <iframe
-              key={previewUrl}
-              src={previewUrl}
-              title="Preview HTML Export"
-              className="export-preview-iframe"
-            />
-          )}
-        </>
+      {previewMode === "peta" && (
+        <ExportPreviewMap
+          projectPath={projectPath}
+          layers={layers}
+          selectedLayerIndexes={selectedLayerIndexes}
+          boundaryLayerIndex={boundaryLayerIndex}
+          layerColors={layerColors}
+          layerCategoryColors={layerCategoryColors}
+          layerOpacities={layerOpacities}
+          layerPointSizes={layerPointSizes}
+          layerOrder={layerOrder}
+          config={config}
+        />
       )}
     </div>
     </div>

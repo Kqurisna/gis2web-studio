@@ -19,13 +19,7 @@
       }
     ],
     "security": {
-      "csp": null,
-      "assetProtocol": {
-        "enable": true,
-        "scope": [
-          "$TEMP/gis2web_preview/**"
-        ]
-      }
+      "csp": null
     }
   },
   "bundle": {
