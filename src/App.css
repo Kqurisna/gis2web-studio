@@ -1804,3 +1804,8 @@ button {
 .leaflet-tooltip.layer-feature-label::before {
   display: none;
 }
+
+/* Label disembunyikan sementara saat animasi fokus ke boundary agar smooth. */
+.map-flying .layer-feature-label {
+  visibility: hidden;
+}

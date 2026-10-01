@@ -610,6 +610,7 @@ function MapView({
       maxNativeZoom: basemapDef.maxNativeZoom,
       minZoom: 0,
       maxZoom: 22,
+      updateWhenZooming: false,
     });
     tileLayer.addTo(map);
     tileLayerRef.current = tileLayer;
@@ -644,6 +645,10 @@ function MapView({
           const bounds = layer.getBounds();
           if (!bounds.isValid()) return;
           const fitZoom = map.getBoundsZoom(bounds);
+          // Sembunyikan label permanen selama animasi agar tidak berat di setiap frame.
+          const mapEl = map.getContainer();
+          mapEl.classList.add("map-flying");
+          map.once("moveend", () => mapEl.classList.remove("map-flying"));
           if (fitZoom < BOUNDARY_FOCUS_MIN_ZOOM) {
             map.flyTo(bounds.getCenter(), BOUNDARY_FOCUS_MIN_ZOOM, { duration: 1.6 });
           } else {
