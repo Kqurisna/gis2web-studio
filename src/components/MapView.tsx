@@ -29,6 +29,12 @@ interface MapViewProps {
   featureDisplayMode: FeatureDisplayMode;
 }
 
+// Map utama (workspace) memakai nilai tetap; zoom/font label hasil Web GIS
+// diatur di Export (ExportConfig).
+const MAIN_MAP_MIN_ZOOM = 5;
+const MAIN_MAP_MAX_ZOOM = 18;
+const MAIN_MAP_LABEL_FONT_SIZE = 13;
+
 interface BasemapTileDef {
   url: string;
   attribution: string;
@@ -599,9 +605,9 @@ function MapView({
     tileLayer.addTo(map);
     tileLayerRef.current = tileLayer;
 
-    map.setMinZoom(config.minZoom);
-    map.setMaxZoom(config.maxZoom);
-  }, [config.basemap, config.minZoom, config.maxZoom]);
+    map.setMinZoom(MAIN_MAP_MIN_ZOOM);
+    map.setMaxZoom(MAIN_MAP_MAX_ZOOM);
+  }, [config.basemap, config.customBasemap]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -723,7 +729,7 @@ function MapView({
                   layerInstance.once("tooltipopen", (e: L.LeafletEvent) => {
                     const tooltipEl = (e as unknown as { tooltip: L.Tooltip }).tooltip.getElement();
                     if (tooltipEl) {
-                      tooltipEl.style.fontSize = `${config.labelFontSize}px`;
+                      tooltipEl.style.fontSize = `${MAIN_MAP_LABEL_FONT_SIZE}px`;
                     }
                   });
                 }
@@ -769,7 +775,7 @@ function MapView({
           const bounds = boundaryGeoLayer.getBounds();
           if (bounds.isValid()) {
             activeMap.flyToBounds(bounds, {
-              maxZoom: config.maxZoom,
+              maxZoom: MAIN_MAP_MAX_ZOOM,
               duration: 2.4,
               easeLinearity: 0.08,
             });

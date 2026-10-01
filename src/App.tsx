@@ -5,6 +5,7 @@ import ProjectPanel, { type LayerInfo } from "./components/ProjectPanel";
 import ImportToolbar from "./components/ImportToolbar";
 import ConfigurationPanel, {
   type WebGisConfig,
+  type ExportConfig,
   type BasemapCandidateInfo,
 } from "./components/ConfigurationPanel";
 import ExportPanel from "./components/ExportPanel";
@@ -88,11 +89,13 @@ function App() {
 
   const [config, setConfig] = useState<WebGisConfig>({
     basemap: "osm",
+    customBasemap: null,
+  });
+  const [exportConfig, setExportConfig] = useState<ExportConfig>({
     minZoom: 5,
     maxZoom: 18,
-    featureDisplayMode: "card",
-    customBasemap: null,
     labelFontSize: 13,
+    featureDisplayMode: "card",
   });
   const [basemapCandidates, setBasemapCandidates] = useState<BasemapCandidateInfo[]>([]);
   const [gdalAvailable, setGdalAvailable] = useState(false);
@@ -235,19 +238,17 @@ function App() {
                   activeFeature={activeFeature}
                   onFocusFeature={handleFocusFeature}
                   visibleFields={layerVisibleFields}
-                  featureDisplayMode={config.featureDisplayMode}
+                  featureDisplayMode="card"
                 />
-                {config.featureDisplayMode !== "popup" && (
-                  <FeatureInfoCard
-                    projectPath={projectPath}
-                    layers={layers}
-                    activeFeature={activeFeature}
-                    onClose={() => setActiveFeature(null)}
-                    onOpenFullTable={() => setAttributeTableCollapsed(false)}
-                    visibleFields={layerVisibleFields}
-                    onVisibleFieldsChange={handleVisibleFieldsChange}
-                  />
-                )}
+                <FeatureInfoCard
+                  projectPath={projectPath}
+                  layers={layers}
+                  activeFeature={activeFeature}
+                  onClose={() => setActiveFeature(null)}
+                  onOpenFullTable={() => setAttributeTableCollapsed(false)}
+                  visibleFields={layerVisibleFields}
+                  onVisibleFieldsChange={handleVisibleFieldsChange}
+                />
                 <AttributeTablePanel
                   projectPath={projectPath}
                   layers={layers}
@@ -258,7 +259,6 @@ function App() {
                   onCollapsedChange={setAttributeTableCollapsed}
                 />
                 <ProjectPanel
-                  labelFontSize={config.labelFontSize}
                   projectPath={projectPath}
                   layers={layers}
                   hasProject={projectPath !== null}

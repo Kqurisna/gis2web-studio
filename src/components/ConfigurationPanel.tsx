@@ -32,11 +32,14 @@ export type FeatureDisplayMode = "both" | "card" | "popup";
 
 export interface WebGisConfig {
   basemap: BasemapOption;
+  customBasemap: BasemapCandidateInfo | null;
+}
+
+export interface ExportConfig {
   minZoom: number;
   maxZoom: number;
-  featureDisplayMode: FeatureDisplayMode;
-  customBasemap: BasemapCandidateInfo | null;
   labelFontSize: number;
+  featureDisplayMode: FeatureDisplayMode;
 }
 
 interface ConfigurationPanelProps {
@@ -70,10 +73,10 @@ export const FEATURE_DISPLAY_OPTIONS: { value: FeatureDisplayMode; label: string
   },
 ];
 
-const ZOOM_MIN_LIMIT = 5;
-const ZOOM_MAX_LIMIT = 20;
-const LABEL_FONT_SIZE_MIN = 8;
-const LABEL_FONT_SIZE_MAX = 24;
+export const ZOOM_MIN_LIMIT = 5;
+export const ZOOM_MAX_LIMIT = 20;
+export const LABEL_FONT_SIZE_MIN = 8;
+export const LABEL_FONT_SIZE_MAX = 24;
 
 function ConfigurationPanel({
   config,
@@ -81,7 +84,6 @@ function ConfigurationPanel({
   basemapCandidates = [],
   gdalAvailable = false,
 }: ConfigurationPanelProps) {
-  const zoomError = config.maxZoom < config.minZoom;
 
   function updateBasemap(basemap: BasemapOption) {
     onConfigChange({ ...config, basemap });
@@ -93,22 +95,6 @@ function ConfigurationPanel({
 
   function isCandidateDisabled(candidate: BasemapCandidateInfo): boolean {
     return candidate.kind === "local_raster" && !gdalAvailable;
-  }
-
-  function updateMinZoom(value: number) {
-    onConfigChange({ ...config, minZoom: value });
-  }
-
-  function updateMaxZoom(value: number) {
-    onConfigChange({ ...config, maxZoom: value });
-  }
-
-  function updateFeatureDisplayMode(featureDisplayMode: FeatureDisplayMode) {
-    onConfigChange({ ...config, featureDisplayMode });
-  }
-
-  function updateLabelFontSize(value: number) {
-    onConfigChange({ ...config, labelFontSize: value });
   }
 
   return (
@@ -167,87 +153,8 @@ function ConfigurationPanel({
       </section>
 
       <section className="config-section">
-        <h3>Map Configuration</h3>
-
-        <div className="config-slider-block">
-          <label className="config-slider-label">Minimum Zoom</label>
-          <div className="config-slider-row">
-            <span className="config-slider-bound">{ZOOM_MIN_LIMIT}</span>
-            <input
-              type="range"
-              min={ZOOM_MIN_LIMIT}
-              max={ZOOM_MAX_LIMIT}
-              value={config.minZoom}
-              onChange={(e) => updateMinZoom(Number(e.target.value))}
-            />
-            <span className="config-slider-bound">{ZOOM_MAX_LIMIT}</span>
-          </div>
-          <div className="config-slider-value">{config.minZoom}</div>
-        </div>
-
-        <div className="config-slider-block">
-          <label className="config-slider-label">Maximum Zoom</label>
-          <div className="config-slider-row">
-            <span className="config-slider-bound">{ZOOM_MIN_LIMIT}</span>
-            <input
-              type="range"
-              min={ZOOM_MIN_LIMIT}
-              max={ZOOM_MAX_LIMIT}
-              value={config.maxZoom}
-              onChange={(e) => updateMaxZoom(Number(e.target.value))}
-            />
-            <span className="config-slider-bound">{ZOOM_MAX_LIMIT}</span>
-          </div>
-          <div className="config-slider-value">{config.maxZoom}</div>
-        </div>
-
-        {zoomError && (
-          <p className="config-error">
-            Maximum Zoom harus lebih besar atau sama dengan Minimum Zoom.
-          </p>
-        )}
-
-        <div className="config-slider-block">
-          <label className="config-slider-label">Ukuran Font Label (px)</label>
-          <div className="config-slider-row">
-            <span className="config-slider-bound">{LABEL_FONT_SIZE_MIN}</span>
-            <input
-              type="range"
-              min={LABEL_FONT_SIZE_MIN}
-              max={LABEL_FONT_SIZE_MAX}
-              value={config.labelFontSize}
-              onChange={(e) => updateLabelFontSize(Number(e.target.value))}
-            />
-            <span className="config-slider-bound">{LABEL_FONT_SIZE_MAX}</span>
-          </div>
-          <div className="config-slider-value">{config.labelFontSize}px</div>
-        </div>
-      </section>
-
-      <section className="config-section">
         <h3>Initial View</h3>
         <p className="config-static-value">Fit to Boundary (default)</p>
-      </section>
-
-      <section className="config-section">
-        <h3>Tampilan Informasi Feature</h3>
-        <div className="config-radio-group">
-          {FEATURE_DISPLAY_OPTIONS.map((option) => (
-            <label key={option.value} className="config-radio-item config-radio-item--stacked">
-              <div className="config-radio-item-row">
-                <input
-                  type="radio"
-                  name="feature-display-mode"
-                  value={option.value}
-                  checked={config.featureDisplayMode === option.value}
-                  onChange={() => updateFeatureDisplayMode(option.value)}
-                />
-                {option.label}
-              </div>
-              <span className="config-radio-item-hint">{option.hint}</span>
-            </label>
-          ))}
-        </div>
       </section>
 
       <section className="config-summary">
@@ -258,14 +165,7 @@ function ConfigurationPanel({
             ? config.customBasemap?.name ?? "Dari QGIS Project"
             : BASEMAP_OPTIONS.find((o) => o.value === config.basemap)?.label}
         </p>
-        <p>
-          Zoom: {config.minZoom} — {config.maxZoom}
-        </p>
         <p>Initial View: Fit to Boundary</p>
-        <p>
-          Tampilan Feature:{" "}
-          {FEATURE_DISPLAY_OPTIONS.find((o) => o.value === config.featureDisplayMode)?.label}
-        </p>
       </section>
     </div>
   );
