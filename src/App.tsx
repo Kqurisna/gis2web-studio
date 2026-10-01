@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 import MapView from "./components/MapView";
 import ProjectPanel, { type LayerInfo } from "./components/ProjectPanel";
@@ -7,6 +8,10 @@ import ConfigurationPanel, {
   type WebGisConfig,
   type ExportConfig,
   type BasemapCandidateInfo,
+  ZOOM_MIN_LIMIT,
+  ZOOM_MAX_LIMIT,
+  LABEL_FONT_SIZE_MIN,
+  LABEL_FONT_SIZE_MAX,
 } from "./components/ConfigurationPanel";
 import ExportPanel from "./components/ExportPanel";
 import AttributeTablePanel from "./components/AttributeTablePanel";
@@ -98,6 +103,78 @@ function App() {
     featureDisplayMode: "card",
   });
   const [basemapCandidates, setBasemapCandidates] = useState<BasemapCandidateInfo[]>([]);
+
+  // Pengaturan (config + exportConfig) disimpan di samping file .qgz
+  // sebagai <nama>.qgz.gis2web.json dan dimuat otomatis saat project dipilih.
+  const loadedPathRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    loadedPathRef.current = null;
+    if (!projectPath) return;
+    let cancelled = false;
+
+    invoke<string | null>("load_project_settings", { projectPath })
+      .then((raw) => {
+        if (cancelled) return;
+        if (raw) {
+          try {
+            const data = JSON.parse(raw) as {
+              config?: Partial<WebGisConfig>;
+              exportConfig?: Partial<ExportConfig>;
+            };
+            const c = data.config;
+            if (c && ["osm", "satellite", "topo", "custom"].includes(c.basemap as string)) {
+              const isCustom = c.basemap === "custom";
+              if (!isCustom || c.customBasemap) {
+                setConfig({
+                  basemap: c.basemap as WebGisConfig["basemap"],
+                  customBasemap: isCustom ? (c.customBasemap ?? null) : null,
+                });
+              }
+            }
+            const e = data.exportConfig;
+            if (e) {
+              const clamp = (v: unknown, lo: number, hi: number, d: number) =>
+                typeof v === "number" && Number.isFinite(v)
+                  ? Math.min(hi, Math.max(lo, Math.round(v)))
+                  : d;
+              const minZoom = clamp(e.minZoom, ZOOM_MIN_LIMIT, ZOOM_MAX_LIMIT, 5);
+              const maxZoom = Math.max(minZoom, clamp(e.maxZoom, ZOOM_MIN_LIMIT, ZOOM_MAX_LIMIT, 18));
+              setExportConfig({
+                minZoom,
+                maxZoom,
+                labelFontSize: clamp(e.labelFontSize, LABEL_FONT_SIZE_MIN, LABEL_FONT_SIZE_MAX, 13),
+                featureDisplayMode: ["card", "popup", "both"].includes(e.featureDisplayMode as string)
+                  ? (e.featureDisplayMode as ExportConfig["featureDisplayMode"])
+                  : "card",
+              });
+            }
+          } catch (err) {
+            console.error("Pengaturan project tidak valid, memakai default:", err);
+          }
+        }
+        loadedPathRef.current = projectPath;
+      })
+      .catch((err) => {
+        console.error("Gagal memuat pengaturan project:", err);
+        if (!cancelled) loadedPathRef.current = projectPath;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectPath]);
+
+  useEffect(() => {
+    if (!projectPath || loadedPathRef.current !== projectPath) return;
+    const timeout = window.setTimeout(() => {
+      invoke("save_project_settings", {
+        projectPath,
+        json: JSON.stringify({ version: 1, config, exportConfig }),
+      }).catch((err) => console.error("Gagal menyimpan pengaturan project:", err));
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [projectPath, config, exportConfig]);
   const [gdalAvailable, setGdalAvailable] = useState(false);
 
   // Layer basemap/tile (mis. "OpenStreetMap" XYZ) yang ikut terbaca dari
