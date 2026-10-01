@@ -1467,7 +1467,7 @@ fn build_app_js(config_json: &str) -> String {
     format!(
         r#"const CONFIG = {config_json};
 
-const map = L.map('map', {{ zoomControl: false }});
+const map = L.map('map', {{ zoomControl: false, minZoom: CONFIG.minZoom, maxZoom: CONFIG.maxZoom }});
 L.control.zoom({{ position: 'bottomright' }}).addTo(map);
 
 function addBasemap() {{
