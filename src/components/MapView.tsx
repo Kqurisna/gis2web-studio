@@ -31,8 +31,9 @@ interface MapViewProps {
 
 // Map utama (workspace) memakai nilai tetap; zoom/font label hasil Web GIS
 // diatur di Export (ExportConfig).
-const MAIN_MAP_MIN_ZOOM = 5;
-const MAIN_MAP_MAX_ZOOM = 18;
+// Map utama tanpa batas zoom manual. Konstanta ini hanya membatasi animasi
+// fokus ke Boundary Layer agar tidak terbang terlalu dekat.
+const BOUNDARY_FOCUS_MAX_ZOOM = 18;
 const MAIN_MAP_LABEL_FONT_SIZE = 13;
 
 interface BasemapTileDef {
@@ -601,13 +602,32 @@ function MapView({
     const tileLayer = L.tileLayer(basemapDef.url, {
       attribution: basemapDef.attribution,
       maxNativeZoom: basemapDef.maxNativeZoom,
+      minZoom: 0,
+      maxZoom: 22,
     });
     tileLayer.addTo(map);
     tileLayerRef.current = tileLayer;
 
-    map.setMinZoom(MAIN_MAP_MIN_ZOOM);
-    map.setMaxZoom(MAIN_MAP_MAX_ZOOM);
   }, [config.basemap, config.customBasemap]);
+
+  // Zoom-out dibatasi agar hanya satu peta dunia yang terlihat (tidak berulang).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const worldBounds = L.latLngBounds([-85.0511, -180], [85.0511, 180]);
+    const applyWorldMinZoom = () => {
+      map.setMinZoom(map.getBoundsZoom(worldBounds, true));
+    };
+
+    map.setMaxBounds(worldBounds);
+    applyWorldMinZoom();
+    map.on("resize", applyWorldMinZoom);
+
+    return () => {
+      map.off("resize", applyWorldMinZoom);
+    };
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -775,7 +795,7 @@ function MapView({
           const bounds = boundaryGeoLayer.getBounds();
           if (bounds.isValid()) {
             activeMap.flyToBounds(bounds, {
-              maxZoom: MAIN_MAP_MAX_ZOOM,
+              maxZoom: BOUNDARY_FOCUS_MAX_ZOOM,
               duration: 2.4,
               easeLinearity: 0.08,
             });
