@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import type { LayerInfo } from "./ProjectPanel";
 import type { WebGisConfig } from "./ConfigurationPanel";
 import { getCachedGeojson } from "../lib/layerGeojsonCache";
-import { styleForLayer, resolveFeatureColor } from "../lib/layerStyle";
+import { styleForLayer, resolveFeatureColor, computeLabeledFeatureIndexes } from "../lib/layerStyle";
 
 interface ExportPreviewMapProps {
   projectPath: string | null;
@@ -15,6 +15,7 @@ interface ExportPreviewMapProps {
   layerOpacities: Record<number, number>;
   layerPointSizes: Record<number, number>;
   layerOrder: number[];
+  layerVisibleFields: Record<number, string[]>;
   config: WebGisConfig;
 }
 
@@ -31,10 +32,12 @@ function ExportPreviewMap({
   layerOpacities,
   layerPointSizes,
   layerOrder,
+  layerVisibleFields,
   config,
 }: ExportPreviewMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const [card, setCard] = useState<{ layerName: string; rows: { key: string; value: string }[] } | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -99,6 +102,8 @@ function ExportPreviewMap({
         return styleForLayer(resolvedColor, isBoundary, layerOpacity);
       };
 
+      const labeledFeatureIndexes = computeLabeledFeatureIndexes(layer, data as GeoJSON.FeatureCollection);
+
       const geoLayer = L.geoJSON(data, {
         style,
         pointToLayer: (feature, latlng) => {
@@ -110,6 +115,76 @@ function ExportPreviewMap({
             color: resolvedColor,
             fillOpacity: layerOpacity,
           });
+        },
+        onEachFeature: (feature, layerInstance) => {
+          const properties = feature.properties as Record<string, unknown> | null;
+          const featureIndex = (data as GeoJSON.FeatureCollection).features.indexOf(feature);
+
+          // Popup: sama seperti hasil export (field sesuai visible_fields).
+          if (
+            (config.featureDisplayMode === "popup" || config.featureDisplayMode === "both") &&
+            properties &&
+            Object.keys(properties).length > 0
+          ) {
+            layerInstance.bindPopup(() => {
+              const selectedFields = layerVisibleFields[index];
+              const allKeys = Object.keys(properties);
+              const fieldsToShow = selectedFields
+                ? selectedFields.filter((f) => allKeys.includes(f))
+                : allKeys;
+              if (fieldsToShow.length === 0) {
+                return '<div class="feature-popup"><p class="feature-popup-empty">Tidak ada kolom yang dipilih untuk ditampilkan.</p></div>';
+              }
+              const rows = fieldsToShow
+                .map((key) => {
+                  const value = properties[key];
+                  return `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(
+                    value === null || value === undefined ? "-" : String(value)
+                  )}</td></tr>`;
+                })
+                .join("");
+              return `<div class="feature-popup"><table class="feature-popup-table">${rows}</table></div>`;
+            }, { autoPan: false });
+          }
+
+          // Feature Information card (mode "card" / "both"): klik feature
+          // menampilkan card ringan, sama seperti showFeatureCard() di
+          // hasil export (app.js), bukan komponen FeatureInfoCard penuh
+          // yang dipakai aplikasi utama (tidak ada edit kolom di preview).
+          if (config.featureDisplayMode === "card" || config.featureDisplayMode === "both") {
+            layerInstance.on("click", () => {
+              const selectedFields = layerVisibleFields[index];
+              const allKeys = properties ? Object.keys(properties) : [];
+              const fieldsToShow = selectedFields
+                ? selectedFields.filter((f) => allKeys.includes(f))
+                : allKeys;
+              const rows = fieldsToShow.map((key) => {
+                const value = properties ? properties[key] : undefined;
+                return { key, value: value === null || value === undefined ? "-" : String(value) };
+              });
+              setCard({ layerName: layer.name, rows });
+            });
+          }
+
+          // Labeling: sama seperti hasil export (tooltip permanent).
+          if (layer.labeling && featureIndex !== -1 && labeledFeatureIndexes.has(featureIndex)) {
+            const labelValue = properties?.[layer.labeling.field];
+            const labelText =
+              labelValue === null || labelValue === undefined ? "" : String(labelValue);
+            if (labelText) {
+              layerInstance.bindTooltip(escapeHtml(labelText), {
+                permanent: true,
+                direction: "center",
+                className: "layer-feature-label",
+              });
+              layerInstance.once("tooltipopen", (e: L.LeafletEvent) => {
+                const tooltipEl = (e as unknown as { tooltip: L.Tooltip }).tooltip.getElement();
+                if (tooltipEl) {
+                  tooltipEl.style.fontSize = `${config.labelFontSize}px`;
+                }
+              });
+            }
+          }
         },
       }).addTo(map);
 
@@ -134,9 +209,47 @@ function ExportPreviewMap({
     config.basemap,
     config.minZoom,
     config.maxZoom,
+    config.featureDisplayMode,
+    config.labelFontSize,
+    layerVisibleFields,
   ]);
 
-  return <div ref={containerRef} className="export-preview-map" />;
+  return (
+    <div className="export-preview-map-wrap">
+      <div ref={containerRef} className="export-preview-map" />
+      {card && (
+        <div className="export-preview-feature-card">
+          <div className="export-preview-feature-card-header">
+            <div>
+              <p className="export-preview-feature-card-title">Feature Information</p>
+              <p className="export-preview-feature-card-subtitle">{card.layerName}</p>
+            </div>
+            <button type="button" onClick={() => setCard(null)}>&times;</button>
+          </div>
+          <table className="feature-popup-table">
+            <tbody>
+              {card.rows.length === 0 ? (
+                <tr><td>Tidak ada atribut.</td></tr>
+              ) : (
+                card.rows.map((r) => (
+                  <tr key={r.key}><th>{r.key}</th><td>{r.value}</td></tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function basemapUrl(basemap: WebGisConfig["basemap"]): string {

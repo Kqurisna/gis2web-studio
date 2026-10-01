@@ -343,6 +343,7 @@ function ExportPanel({
           layerOpacities={layerOpacities}
           layerPointSizes={layerPointSizes}
           layerOrder={layerOrder}
+          layerVisibleFields={layerVisibleFields}
           config={config}
         />
       )}
