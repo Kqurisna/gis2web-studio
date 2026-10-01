@@ -34,6 +34,7 @@ interface MapViewProps {
 // Map utama tanpa batas zoom manual. Konstanta ini hanya membatasi animasi
 // fokus ke Boundary Layer agar tidak terbang terlalu dekat.
 const BOUNDARY_FOCUS_MAX_ZOOM = 18;
+const BOUNDARY_FOCUS_MIN_ZOOM = 5;
 const MAIN_MAP_LABEL_FONT_SIZE = 13;
 
 interface BasemapTileDef {
@@ -141,6 +142,11 @@ function MapView({
   const activeFeatureRef = useRef<{ layerIndex: number; featureIndex: number } | null>(activeFeature);
   const layerOrderRef = useRef<number[]>(layerOrder);
   const prevBoundaryLayerIndexRef = useRef<number | null>(null);
+  const boundaryLayerIndexRef = useRef<number | null>(boundaryLayerIndex);
+
+  useEffect(() => {
+    boundaryLayerIndexRef.current = boundaryLayerIndex;
+  }, [boundaryLayerIndex]);
   const visibleFieldsRef = useRef<Record<number, string[]>>(visibleFields);
   const featureDisplayModeRef = useRef<FeatureDisplayMode>(featureDisplayMode);
 
@@ -609,6 +615,51 @@ function MapView({
     tileLayerRef.current = tileLayer;
 
   }, [config.basemap, config.customBasemap]);
+
+  // Tombol 1 klik: terbang ke Boundary Layer, zoom hasil tidak lebih kecil
+  // dari BOUNDARY_FOCUS_MIN_ZOOM.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const FocusControl = L.Control.extend({
+      onAdd() {
+        const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+        const button = L.DomUtil.create("a", "", container) as HTMLAnchorElement;
+        button.href = "#";
+        button.title = "Fokus ke Boundary Layer";
+        button.setAttribute("role", "button");
+        button.setAttribute("aria-label", "Fokus ke Boundary Layer");
+        button.style.fontSize = "18px";
+        button.style.lineHeight = "30px";
+        button.style.textAlign = "center";
+        button.innerHTML = "&#8982;";
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.on(button, "click", (ev) => {
+          L.DomEvent.preventDefault(ev);
+          const idx = boundaryLayerIndexRef.current;
+          if (idx === null) return;
+          const layer = layerRefsRef.current.get(idx);
+          if (!layer) return;
+          const bounds = layer.getBounds();
+          if (!bounds.isValid()) return;
+          const fitZoom = map.getBoundsZoom(bounds);
+          if (fitZoom < BOUNDARY_FOCUS_MIN_ZOOM) {
+            map.flyTo(bounds.getCenter(), BOUNDARY_FOCUS_MIN_ZOOM, { duration: 1.6 });
+          } else {
+            map.flyToBounds(bounds, { maxZoom: BOUNDARY_FOCUS_MAX_ZOOM, duration: 1.6 });
+          }
+        });
+        return container;
+      },
+    });
+
+    const control = new FocusControl({ position: "bottomright" });
+    control.addTo(map);
+    return () => {
+      control.remove();
+    };
+  }, []);
 
   // Zoom-out dibatasi agar hanya satu peta dunia yang terlihat (tidak berulang).
   useEffect(() => {
