@@ -306,6 +306,8 @@ function App() {
               layerVisibleFields={layerVisibleFields}
               layerAttributeTableEnabled={layerAttributeTableEnabled}
               config={config}
+              exportConfig={exportConfig}
+              onExportConfigChange={setExportConfig}
             />
           ) : (
             <>

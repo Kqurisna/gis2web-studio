@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import type { LayerInfo } from "./ProjectPanel";
-import type { WebGisConfig } from "./ConfigurationPanel";
+import type { WebGisConfig, ExportConfig } from "./ConfigurationPanel";
 import { getCachedGeojson } from "../lib/layerGeojsonCache";
 import { styleForLayer, resolveFeatureColor, computeLabeledFeatureIndexes } from "../lib/layerStyle";
 
@@ -17,6 +17,7 @@ interface ExportPreviewMapProps {
   layerOrder: number[];
   layerVisibleFields: Record<number, string[]>;
   config: WebGisConfig;
+  exportConfig: ExportConfig;
 }
 
 // Preview export murni dari CACHE (hasil prefetch saat import), tidak pernah
@@ -34,6 +35,7 @@ function ExportPreviewMap({
   layerOrder,
   layerVisibleFields,
   config,
+  exportConfig,
 }: ExportPreviewMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -60,8 +62,8 @@ function ExportPreviewMap({
     L.tileLayer(config.basemap === "custom" ? "" : basemapUrl(config.basemap), {
       attribution: "",
     }).addTo(map);
-    map.setMinZoom(config.minZoom);
-    map.setMaxZoom(config.maxZoom);
+    map.setMinZoom(exportConfig.minZoom);
+    map.setMaxZoom(exportConfig.maxZoom);
 
     const indexesSet = new Set([
       ...selectedLayerIndexes,
@@ -122,7 +124,7 @@ function ExportPreviewMap({
 
           // Popup: sama seperti hasil export (field sesuai visible_fields).
           if (
-            (config.featureDisplayMode === "popup" || config.featureDisplayMode === "both") &&
+            (exportConfig.featureDisplayMode === "popup" || exportConfig.featureDisplayMode === "both") &&
             properties &&
             Object.keys(properties).length > 0
           ) {
@@ -151,7 +153,7 @@ function ExportPreviewMap({
           // menampilkan card ringan, sama seperti showFeatureCard() di
           // hasil export (app.js), bukan komponen FeatureInfoCard penuh
           // yang dipakai aplikasi utama (tidak ada edit kolom di preview).
-          if (config.featureDisplayMode === "card" || config.featureDisplayMode === "both") {
+          if (exportConfig.featureDisplayMode === "card" || exportConfig.featureDisplayMode === "both") {
             layerInstance.on("click", () => {
               const selectedFields = layerVisibleFields[index];
               const allKeys = properties ? Object.keys(properties) : [];
@@ -180,7 +182,7 @@ function ExportPreviewMap({
               layerInstance.once("tooltipopen", (e: L.LeafletEvent) => {
                 const tooltipEl = (e as unknown as { tooltip: L.Tooltip }).tooltip.getElement();
                 if (tooltipEl) {
-                  tooltipEl.style.fontSize = `${config.labelFontSize}px`;
+                  tooltipEl.style.fontSize = `${exportConfig.labelFontSize}px`;
                 }
               });
             }
@@ -207,10 +209,10 @@ function ExportPreviewMap({
     layerPointSizes,
     layerOrder,
     config.basemap,
-    config.minZoom,
-    config.maxZoom,
-    config.featureDisplayMode,
-    config.labelFontSize,
+    exportConfig.minZoom,
+    exportConfig.maxZoom,
+    exportConfig.featureDisplayMode,
+    exportConfig.labelFontSize,
     layerVisibleFields,
   ]);
 

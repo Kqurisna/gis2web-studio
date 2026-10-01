@@ -3,8 +3,16 @@ import { open } from "@tauri-apps/plugin-dialog";
 import ExportPreviewMap from "./ExportPreviewMap";
 import { invoke } from "@tauri-apps/api/core";
 import type { LayerInfo } from "./ProjectPanel";
-import type { WebGisConfig } from "./ConfigurationPanel";
-import { BASEMAP_TILE_INFO, BASEMAP_OPTIONS, FEATURE_DISPLAY_OPTIONS } from "./ConfigurationPanel";
+import type { WebGisConfig, ExportConfig } from "./ConfigurationPanel";
+import {
+  BASEMAP_TILE_INFO,
+  BASEMAP_OPTIONS,
+  FEATURE_DISPLAY_OPTIONS,
+  ZOOM_MIN_LIMIT,
+  ZOOM_MAX_LIMIT,
+  LABEL_FONT_SIZE_MIN,
+  LABEL_FONT_SIZE_MAX,
+} from "./ConfigurationPanel";
 
 interface ExportPanelProps {
   projectPath: string | null;
@@ -19,6 +27,8 @@ interface ExportPanelProps {
   layerVisibleFields: Record<number, string[]>;
   layerAttributeTableEnabled: Record<number, boolean>;
   config: WebGisConfig;
+  exportConfig: ExportConfig;
+  onExportConfigChange: (config: ExportConfig) => void;
 }
 
 interface ExportCategoryInput {
@@ -57,6 +67,7 @@ interface ExportLayerInput {
 
 async function resolveExportBasemap(
   config: WebGisConfig,
+  exportConfig: ExportConfig,
   outputDir: string
 ): Promise<{ tile_url: string; attribution: string }> {
   if (config.basemap !== "custom" || !config.customBasemap) {
@@ -88,8 +99,8 @@ async function resolveExportBasemap(
   await invoke<string>("generate_tile_pyramid", {
     rasterPath: candidate.datasource,
     outputDir,
-    minZoom: config.minZoom,
-    maxZoom: config.maxZoom,
+    minZoom: exportConfig.minZoom,
+    maxZoom: exportConfig.maxZoom,
   });
 
   return {
@@ -111,6 +122,8 @@ function ExportPanel({
   layerVisibleFields,
   layerAttributeTableEnabled,
   config,
+  exportConfig,
+  onExportConfigChange,
 }: ExportPanelProps) {
   const [outputDir, setOutputDir] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -118,7 +131,10 @@ function ExportPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<"ringkasan" | "peta">("ringkasan");
 
+  const zoomError = exportConfig.maxZoom < exportConfig.minZoom;
+
   const canExport =
+    !zoomError &&
     projectPath !== null &&
     selectedLayerIndexes.length > 0 &&
     boundaryLayerIndex !== null &&
@@ -195,19 +211,19 @@ function ExportPanel({
     const exportLayers = buildExportLayers();
 
     try {
-      const basemapResolved = await resolveExportBasemap(config, outputDir);
+      const basemapResolved = await resolveExportBasemap(config, exportConfig, outputDir);
       const message = await invoke<string>("export_web_gis", {
         projectPath,
         outputDir,
         layers: exportLayers,
         config: {
           basemap: config.basemap,
-          min_zoom: config.minZoom,
-          max_zoom: config.maxZoom,
+          min_zoom: exportConfig.minZoom,
+          max_zoom: exportConfig.maxZoom,
           tile_url: basemapResolved.tile_url,
           attribution: basemapResolved.attribution,
-          feature_display_mode: config.featureDisplayMode,
-          label_font_size: config.labelFontSize,
+          feature_display_mode: exportConfig.featureDisplayMode,
+          label_font_size: exportConfig.labelFontSize,
         },
       });
       setResultMessage(message);
@@ -236,8 +252,8 @@ function ExportPanel({
       : BASEMAP_OPTIONS.find((o) => o.value === config.basemap)?.label ?? config.basemap;
 
   const featureDisplayLabel =
-    FEATURE_DISPLAY_OPTIONS.find((o) => o.value === config.featureDisplayMode)?.label ??
-    config.featureDisplayMode;
+    FEATURE_DISPLAY_OPTIONS.find((o) => o.value === exportConfig.featureDisplayMode)?.label ??
+    exportConfig.featureDisplayMode;
 
   return (
     <div className="export-panel-layout">
@@ -269,8 +285,84 @@ function ExportPanel({
           <p className="config-static-value">Belum ada layer dipilih.</p>
         )}
         <p>Basemap: {basemapLabel}</p>
-        <p>Zoom: {config.minZoom} — {config.maxZoom}</p>
+        <p>Zoom: {exportConfig.minZoom} — {exportConfig.maxZoom}</p>
+        <p>Ukuran Font Label: {exportConfig.labelFontSize}px</p>
         <p>Feature Display: {featureDisplayLabel}</p>
+
+        <div className="config-slider-block">
+          <label className="config-slider-label">Minimum Zoom</label>
+          <div className="config-slider-row">
+            <span className="config-slider-bound">{ZOOM_MIN_LIMIT}</span>
+            <input
+              type="range"
+              min={ZOOM_MIN_LIMIT}
+              max={ZOOM_MAX_LIMIT}
+              value={exportConfig.minZoom}
+              onChange={(e) => onExportConfigChange({ ...exportConfig, minZoom: Number(e.target.value) })}
+            />
+            <span className="config-slider-bound">{ZOOM_MAX_LIMIT}</span>
+          </div>
+          <div className="config-slider-value">{exportConfig.minZoom}</div>
+        </div>
+
+        <div className="config-slider-block">
+          <label className="config-slider-label">Maximum Zoom</label>
+          <div className="config-slider-row">
+            <span className="config-slider-bound">{ZOOM_MIN_LIMIT}</span>
+            <input
+              type="range"
+              min={ZOOM_MIN_LIMIT}
+              max={ZOOM_MAX_LIMIT}
+              value={exportConfig.maxZoom}
+              onChange={(e) => onExportConfigChange({ ...exportConfig, maxZoom: Number(e.target.value) })}
+            />
+            <span className="config-slider-bound">{ZOOM_MAX_LIMIT}</span>
+          </div>
+          <div className="config-slider-value">{exportConfig.maxZoom}</div>
+        </div>
+
+        {zoomError && (
+          <p className="config-error">
+            Maximum Zoom harus lebih besar atau sama dengan Minimum Zoom.
+          </p>
+        )}
+
+        <div className="config-slider-block">
+          <label className="config-slider-label">Ukuran Font Label (px)</label>
+          <div className="config-slider-row">
+            <span className="config-slider-bound">{LABEL_FONT_SIZE_MIN}</span>
+            <input
+              type="range"
+              min={LABEL_FONT_SIZE_MIN}
+              max={LABEL_FONT_SIZE_MAX}
+              value={exportConfig.labelFontSize}
+              onChange={(e) => onExportConfigChange({ ...exportConfig, labelFontSize: Number(e.target.value) })}
+            />
+            <span className="config-slider-bound">{LABEL_FONT_SIZE_MAX}</span>
+          </div>
+          <div className="config-slider-value">{exportConfig.labelFontSize}px</div>
+        </div>
+
+        <div className="config-slider-block">
+          <label className="config-slider-label">Tampilan Informasi Feature</label>
+          <div className="config-radio-group">
+            {FEATURE_DISPLAY_OPTIONS.map((option) => (
+              <label key={option.value} className="config-radio-item config-radio-item--stacked">
+                <div className="config-radio-item-row">
+                  <input
+                    type="radio"
+                    name="export-feature-display-mode"
+                    value={option.value}
+                    checked={exportConfig.featureDisplayMode === option.value}
+                    onChange={() => onExportConfigChange({ ...exportConfig, featureDisplayMode: option.value })}
+                  />
+                  {option.label}
+                </div>
+                <span className="config-radio-item-hint">{option.hint}</span>
+              </label>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="config-section">
@@ -345,6 +437,7 @@ function ExportPanel({
           layerOrder={layerOrder}
           layerVisibleFields={layerVisibleFields}
           config={config}
+          exportConfig={exportConfig}
         />
       )}
     </div>
