@@ -151,6 +151,31 @@ fn parse_qgis_basemap_candidates(path: String) -> Result<Vec<BasemapCandidateInf
     parse_basemap_candidates(&xml_content)
 }
 
+fn project_settings_path(project_path: &str) -> std::path::PathBuf {
+    std::path::PathBuf::from(format!("{project_path}.gis2web.json"))
+}
+
+#[tauri::command]
+fn load_project_settings(project_path: String) -> Result<Option<String>, String> {
+    let path = project_settings_path(&project_path);
+    if !path.exists() {
+        return Ok(None);
+    }
+    std::fs::read_to_string(&path)
+        .map(Some)
+        .map_err(|e| format!("Gagal membaca pengaturan project: {e}"))
+}
+
+#[tauri::command]
+fn save_project_settings(project_path: String, json: String) -> Result<(), String> {
+    serde_json::from_str::<serde_json::Value>(&json)
+        .map_err(|e| format!("Format pengaturan tidak valid: {e}"))?;
+    let path = project_settings_path(&project_path);
+    let tmp = std::path::PathBuf::from(format!("{project_path}.gis2web.json.tmp"));
+    std::fs::write(&tmp, json).map_err(|e| format!("Gagal menulis pengaturan project: {e}"))?;
+    std::fs::rename(&tmp, &path).map_err(|e| format!("Gagal menyimpan pengaturan project: {e}"))
+}
+
 #[tauri::command]
 fn check_gdal_available() -> bool {
     Command::new("gdal2tiles.py")
@@ -2206,6 +2231,8 @@ pub fn run() {
             parse_qgis_project,
             parse_qgis_basemap_candidates,
             check_gdal_available,
+            load_project_settings,
+            save_project_settings,
             generate_tile_pyramid,
             get_layer_geojson,
             export_web_gis
