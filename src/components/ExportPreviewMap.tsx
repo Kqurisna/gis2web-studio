@@ -41,6 +41,9 @@ function ExportPreviewMap({
 }: ExportPreviewMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const boundaryBoundsRef = useRef<L.LatLngBounds | null>(null);
+  const zoomRangeRef = useRef({ minZoom: exportConfig.minZoom, maxZoom: exportConfig.maxZoom });
+  zoomRangeRef.current = { minZoom: exportConfig.minZoom, maxZoom: exportConfig.maxZoom };
   const [card, setCard] = useState<{ layerName: string; rows: { key: string; value: string }[] } | null>(null);
 
   useEffect(() => {
@@ -75,6 +78,7 @@ function ExportPreviewMap({
     ];
 
     const allBounds: L.LatLngBounds[] = [];
+    boundaryBoundsRef.current = null;
 
     for (const index of indexesToShow) {
       const layer = layers[index];
@@ -192,6 +196,7 @@ function ExportPreviewMap({
 
       const b = geoLayer.getBounds();
       if (b.isValid()) allBounds.push(b);
+      if (isBoundary && b.isValid()) boundaryBoundsRef.current = b;
     }
 
     if (allBounds.length > 0) {
@@ -213,6 +218,56 @@ function ExportPreviewMap({
     exportConfig.labelFontSize,
     layerVisibleFields,
   ]);
+
+  // Tombol 1 klik: fokus ke Boundary Layer, zoom hasil dijepit ke rentang
+  // Minimum/Maximum Zoom dari Export Configuration.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const FocusControl = L.Control.extend({
+      onAdd() {
+        const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+        const button = L.DomUtil.create("a", "", container) as HTMLAnchorElement;
+        button.href = "#";
+        button.title = "Fokus ke Boundary Layer";
+        button.setAttribute("role", "button");
+        button.setAttribute("aria-label", "Fokus ke Boundary Layer");
+        button.style.fontSize = "18px";
+        button.style.lineHeight = "30px";
+        button.style.textAlign = "center";
+        button.innerHTML = "&#8982;";
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.on(button, "click", (ev) => {
+          L.DomEvent.preventDefault(ev);
+          const bounds = boundaryBoundsRef.current;
+          if (!bounds || !bounds.isValid()) return;
+          const { minZoom, maxZoom } = zoomRangeRef.current;
+          const mapEl = map.getContainer();
+          mapEl.classList.add("map-flying");
+          map.once("moveend", () => mapEl.classList.remove("map-flying"));
+          const fitZoom = map.getBoundsZoom(bounds);
+          if (fitZoom < minZoom) {
+            map.flyTo(bounds.getCenter(), minZoom, { duration: 1.6 });
+          } else {
+            map.flyToBounds(bounds, { maxZoom, duration: 1.6 });
+          }
+        });
+        return container;
+      },
+    });
+
+    const control = new FocusControl({ position: "topleft" });
+    control.addTo(map);
+    const el = control.getContainer();
+    const zoomEl = map.zoomControl?.getContainer();
+    if (el && zoomEl && zoomEl.parentNode) {
+      zoomEl.parentNode.insertBefore(el, zoomEl);
+    }
+    return () => {
+      control.remove();
+    };
+  }, []);
 
   // Batas zoom Preview. Saat Minimum Zoom berubah, peta bergerak (maju atau
   // mundur) ke level Minimum Zoom baru dengan animasi; durasi mengikuti jarak.
