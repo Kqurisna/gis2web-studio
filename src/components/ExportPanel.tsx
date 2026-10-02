@@ -6,7 +6,6 @@ import type { LayerInfo } from "./ProjectPanel";
 import type { WebGisConfig, ExportConfig } from "./ConfigurationPanel";
 import {
   BASEMAP_TILE_INFO,
-  BASEMAP_OPTIONS,
   FEATURE_DISPLAY_OPTIONS,
   ZOOM_MIN_LIMIT,
   ZOOM_MAX_LIMIT,
@@ -129,7 +128,6 @@ function ExportPanel({
   const [exporting, setExporting] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [previewMode, setPreviewMode] = useState<"ringkasan" | "peta">("ringkasan");
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
 
   const zoomError = exportConfig.maxZoom < exportConfig.minZoom;
@@ -235,61 +233,11 @@ function ExportPanel({
     }
   }
 
-  const previewIndexesSet = new Set([
-    ...selectedLayerIndexes,
-    ...(boundaryLayerIndex !== null ? [boundaryLayerIndex] : []),
-  ]);
-  const previewLayerNames = [
-    ...layerOrder.filter((idx) => previewIndexesSet.has(idx)),
-    ...Array.from(previewIndexesSet).filter((idx) => !layerOrder.includes(idx)),
-  ]
-    .map((idx) => layers[idx])
-    .filter((layer): layer is LayerInfo => Boolean(layer))
-    .map((layer) => layer.name);
-
-  const basemapLabel =
-    config.basemap === "custom"
-      ? config.customBasemap?.name ?? "Custom (belum dipilih)"
-      : BASEMAP_OPTIONS.find((o) => o.value === config.basemap)?.label ?? config.basemap;
-
-  const featureDisplayLabel =
-    FEATURE_DISPLAY_OPTIONS.find((o) => o.value === exportConfig.featureDisplayMode)?.label ??
-    exportConfig.featureDisplayMode;
-
   return (
     <div className="export-panel-layout">
     <div className="export-panel">
       <section className="config-section">
-        <h3>Ringkasan</h3>
-        <p>Project: {projectPath ?? "(belum ada project diimport)"}</p>
-        <p>Layer dipublikasikan: {selectedLayerIndexes.length}</p>
-        <p>
-          Boundary Layer:{" "}
-          {boundaryLayerIndex !== null
-            ? layers[boundaryLayerIndex]?.name
-            : "(belum dipilih)"}
-        </p>
-      </section>
-
-      <section className="config-section">
-        <h3>Preview Export</h3>
-        {previewLayerNames.length > 0 ? (
-          <>
-            <p>Layer ({previewLayerNames.length}):</p>
-            <ul className="export-preview-list">
-              {previewLayerNames.map((name, i) => (
-                <li key={i}>{name}</li>
-              ))}
-            </ul>
-          </>
-        ) : (
-          <p className="config-static-value">Belum ada layer dipilih.</p>
-        )}
-        <p>Basemap: {basemapLabel}</p>
-        <p>Zoom: {exportConfig.minZoom} — {exportConfig.maxZoom}</p>
-        <p>Ukuran Font Label: {exportConfig.labelFontSize}px</p>
-        <p>Feature Display: {featureDisplayLabel}</p>
-
+        <h3>Pengaturan Export</h3>
         <div className="config-slider-block">
           <label className="config-slider-label">Minimum Zoom</label>
           <div className="config-slider-row">
@@ -398,53 +346,23 @@ function ExportPanel({
     </div>
 
     <div className="export-preview-pane">
-      <div className="export-preview-tabs">
+      <div className="export-preview-device-toggle">
         <button
           type="button"
-          className={"export-preview-tab" + (previewMode === "ringkasan" ? " active" : "")}
-          onClick={() => setPreviewMode("ringkasan")}
+          className={"export-preview-tab" + (previewDevice === "desktop" ? " active" : "")}
+          onClick={() => setPreviewDevice("desktop")}
         >
-          Preview Ringkasan
+          Desktop
         </button>
         <button
           type="button"
-          className={"export-preview-tab" + (previewMode === "peta" ? " active" : "")}
-          onClick={() => setPreviewMode("peta")}
-          disabled={!projectPath}
+          className={"export-preview-tab" + (previewDevice === "mobile" ? " active" : "")}
+          onClick={() => setPreviewDevice("mobile")}
         >
-          Preview Peta
+          Mobile
         </button>
       </div>
 
-      {previewMode === "ringkasan" && (
-        <div className="export-preview-placeholder">
-          <p>Preview ringkasan ditampilkan di panel kiri.</p>
-          <p className="config-static-value">
-            Klik "Preview Peta" untuk melihat tampilan layer terpilih di peta.
-          </p>
-        </div>
-      )}
-
-      {previewMode === "peta" && (
-        <div className="export-preview-device-toggle">
-          <button
-            type="button"
-            className={"export-preview-tab" + (previewDevice === "desktop" ? " active" : "")}
-            onClick={() => setPreviewDevice("desktop")}
-          >
-            Desktop
-          </button>
-          <button
-            type="button"
-            className={"export-preview-tab" + (previewDevice === "mobile" ? " active" : "")}
-            onClick={() => setPreviewDevice("mobile")}
-          >
-            Mobile
-          </button>
-        </div>
-      )}
-
-      {previewMode === "peta" && (
         <div className={previewDevice === "mobile" ? "export-preview-frame--mobile" : "export-preview-frame"}>
         <ExportPreviewMap
           projectPath={projectPath}
@@ -462,7 +380,6 @@ function ExportPanel({
           device={previewDevice}
         />
         </div>
-      )}
     </div>
     </div>
   );

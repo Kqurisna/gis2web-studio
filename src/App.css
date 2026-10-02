@@ -666,7 +666,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  width: 480px;
+  width: 340px;
   flex-shrink: 0;
 }
 
@@ -1845,4 +1845,14 @@ button {
 
 .export-preview-frame .export-preview-map-wrap {
   flex: 1;
+}
+
+/* Export: preview peta mengisi sisa ruang */
+.export-preview-pane .export-preview-frame .export-preview-map-wrap {
+  min-height: calc(100vh - 14rem);
+}
+
+.export-preview-frame--mobile .export-preview-map-wrap {
+  height: calc(100vh - 14rem);
+  min-height: 500px;
 }
