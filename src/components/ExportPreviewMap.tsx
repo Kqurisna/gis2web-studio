@@ -64,8 +64,6 @@ function ExportPreviewMap({
     L.tileLayer(config.basemap === "custom" ? "" : basemapUrl(config.basemap), {
       attribution: "",
     }).addTo(map);
-    map.setMinZoom(exportConfig.minZoom);
-    map.setMaxZoom(exportConfig.maxZoom);
 
     const indexesSet = new Set([
       ...selectedLayerIndexes,
@@ -211,12 +209,39 @@ function ExportPreviewMap({
     layerPointSizes,
     layerOrder,
     config.basemap,
-    exportConfig.minZoom,
-    exportConfig.maxZoom,
     exportConfig.featureDisplayMode,
     exportConfig.labelFontSize,
     layerVisibleFields,
   ]);
+
+  // Batas zoom Preview. Saat Minimum Zoom berubah, peta bergerak (maju atau
+  // mundur) ke level Minimum Zoom baru dengan animasi; durasi mengikuti jarak.
+  // Saat Maximum Zoom berubah, peta hanya dijepit bila melewati batas.
+  const prevMinZoomRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const { minZoom, maxZoom } = exportConfig;
+    map.setMinZoom(minZoom);
+    map.setMaxZoom(maxZoom);
+
+    const minChanged = prevMinZoomRef.current !== null && prevMinZoomRef.current !== minZoom;
+    prevMinZoomRef.current = minZoom;
+
+    const timeout = window.setTimeout(() => {
+      const currentZoom = map.getZoom();
+      const target = minChanged
+        ? minZoom
+        : Math.min(maxZoom, Math.max(minZoom, currentZoom));
+      if (target === currentZoom) return;
+      const duration = Math.min(2.5, Math.max(0.5, 0.4 + 0.12 * Math.abs(target - currentZoom)));
+      map.flyTo(map.getCenter(), target, { duration });
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [exportConfig.minZoom, exportConfig.maxZoom, projectPath]);
 
   useEffect(() => {
     const t = window.setTimeout(() => mapRef.current?.invalidateSize(), 50);
