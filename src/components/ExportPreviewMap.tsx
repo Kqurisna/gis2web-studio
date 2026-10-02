@@ -3,7 +3,8 @@ import L from "leaflet";
 import type { LayerInfo } from "./ProjectPanel";
 import type { WebGisConfig, ExportConfig } from "./ConfigurationPanel";
 import { getCachedGeojson } from "../lib/layerGeojsonCache";
-import { styleForLayer, resolveFeatureColor, computeLabeledFeatureIndexes } from "../lib/layerStyle";
+import { styleForLayer, resolveFeatureColor, computeLabeledFeatureIndexes, getPreviewHighlightStyle, getStrongHighlightStyle } from "../lib/layerStyle";
+import { getFeatureCandidates } from "../lib/featureHitTest";
 
 interface ExportPreviewMapProps {
   projectPath: string | null;
@@ -44,6 +45,19 @@ function ExportPreviewMap({
   const boundaryBoundsRef = useRef<L.LatLngBounds | null>(null);
   const zoomRangeRef = useRef({ minZoom: exportConfig.minZoom, maxZoom: exportConfig.maxZoom });
   zoomRangeRef.current = { minZoom: exportConfig.minZoom, maxZoom: exportConfig.maxZoom };
+  const featureLayersRef = useRef<Map<string, L.Layer>>(new Map());
+  const geojsonRef = useRef<Map<number, GeoJSON.FeatureCollection>>(new Map());
+  const styleRef = useRef<Map<number, L.StyleFunction>>(new Map());
+  const hoveredKeyRef = useRef<string | null>(null);
+  const selectedKeyRef = useRef<string | null>(null);
+  const clearSelectionRef = useRef<() => void>(() => {});
+  const cycleRef = useRef<{ point: L.Point | null; matches: { layerIndex: number; featureIndex: number }[]; index: number }>({
+    point: null,
+    matches: [],
+    index: 0,
+  });
+  const ctxRef = useRef({ layers, layerOrder, layerVisibleFields, layerPointSizes, mode: exportConfig.featureDisplayMode });
+  ctxRef.current = { layers, layerOrder, layerVisibleFields, layerPointSizes, mode: exportConfig.featureDisplayMode };
   const [card, setCard] = useState<{ layerName: string; rows: { key: string; value: string }[] } | null>(null);
 
   useEffect(() => {
@@ -79,6 +93,12 @@ function ExportPreviewMap({
 
     const allBounds: L.LatLngBounds[] = [];
     boundaryBoundsRef.current = null;
+    featureLayersRef.current.clear();
+    geojsonRef.current.clear();
+    styleRef.current.clear();
+    hoveredKeyRef.current = null;
+    selectedKeyRef.current = null;
+    cycleRef.current = { point: null, matches: [], index: 0 };
 
     for (const index of indexesToShow) {
       const layer = layers[index];
@@ -109,6 +129,9 @@ function ExportPreviewMap({
         // Boundary: fill hampir transparan agar area dalam polygon tetap menangkap klik.
         return isBoundary ? { ...base, fill: true, fillOpacity: 0.001 } : base;
       };
+
+      styleRef.current.set(index, style);
+      geojsonRef.current.set(index, data as GeoJSON.FeatureCollection);
 
       const labeledFeatureIndexes = computeLabeledFeatureIndexes(layer, data as GeoJSON.FeatureCollection);
 
@@ -159,19 +182,8 @@ function ExportPreviewMap({
           // menampilkan card ringan, sama seperti showFeatureCard() di
           // hasil export (app.js), bukan komponen FeatureInfoCard penuh
           // yang dipakai aplikasi utama (tidak ada edit kolom di preview).
-          if (exportConfig.featureDisplayMode === "card" || exportConfig.featureDisplayMode === "both") {
-            layerInstance.on("click", () => {
-              const selectedFields = layerVisibleFields[index];
-              const allKeys = properties ? Object.keys(properties) : [];
-              const fieldsToShow = selectedFields
-                ? selectedFields.filter((f) => allKeys.includes(f))
-                : allKeys;
-              const rows = fieldsToShow.map((key) => {
-                const value = properties ? properties[key] : undefined;
-                return { key, value: value === null || value === undefined ? "-" : String(value) };
-              });
-              setCard({ layerName: layer.name, rows });
-            });
+          if (featureIndex !== -1) {
+            featureLayersRef.current.set(`${index}:${featureIndex}`, layerInstance);
           }
 
           // Labeling: sama seperti hasil export (tooltip permanent).
@@ -220,6 +232,152 @@ function ExportPreviewMap({
     exportConfig.labelFontSize,
     layerVisibleFields,
   ]);
+
+  // Smart hover + klik + click-cycle: memakai hit-test yang sama dengan Map utama.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const getCandidates = (latlng: L.LatLng) =>
+      getFeatureCandidates({
+        map,
+        latlng,
+        layerOrder: ctxRef.current.layerOrder,
+        layerIndexes: geojsonRef.current.keys(),
+        isLayerVisible: () => true,
+        getGeojson: (i) => geojsonRef.current.get(i),
+        getFeatureLayer: (k) => featureLayersRef.current.get(k),
+      });
+
+    type StyledLayer = L.Path & { feature?: GeoJSON.Feature; setRadius?: (r: number) => L.Layer };
+
+    const restoreStyle = (key: string) => {
+      const [li, fi] = key.split(":").map(Number);
+      const inst = featureLayersRef.current.get(key) as StyledLayer | undefined;
+      if (!inst) return;
+      const geomType = geojsonRef.current.get(li)?.features[fi]?.geometry?.type;
+      if ((geomType === "Point" || geomType === "MultiPoint") && typeof inst.setRadius === "function") {
+        inst.setRadius(ctxRef.current.layerPointSizes[li] ?? 5);
+      }
+      const styleFn = styleRef.current.get(li);
+      if (styleFn && typeof inst.setStyle === "function") {
+        inst.setStyle(styleFn(inst.feature as GeoJSON.Feature));
+      }
+    };
+
+    const applySelection = (key: string | null) => {
+      const prev = selectedKeyRef.current;
+      if (prev && prev !== key) restoreStyle(prev);
+      selectedKeyRef.current = key;
+      if (!key) return;
+      const [li] = key.split(":").map(Number);
+      const inst = featureLayersRef.current.get(key) as StyledLayer | undefined;
+      const styleFn = styleRef.current.get(li);
+      if (!inst || !styleFn || typeof inst.setStyle !== "function") return;
+      inst.setStyle(getStrongHighlightStyle(styleFn(inst.feature as GeoJSON.Feature)));
+      inst.bringToFront?.();
+    };
+    clearSelectionRef.current = () => applySelection(null);
+
+    const clearHover = () => {
+      const key = hoveredKeyRef.current;
+      if (!key) return;
+      hoveredKeyRef.current = null;
+      if (key === selectedKeyRef.current) return;
+      restoreStyle(key);
+    };
+
+    const applyHover = (key: string | null) => {
+      if (key === hoveredKeyRef.current) return;
+      clearHover();
+      if (!key) return;
+      const [li, fi] = key.split(":").map(Number);
+      const inst = featureLayersRef.current.get(key) as StyledLayer | undefined;
+      if (!inst) return;
+      const geomType = geojsonRef.current.get(li)?.features[fi]?.geometry?.type;
+      if (geomType === "Point" || geomType === "MultiPoint") {
+        inst.setRadius?.((ctxRef.current.layerPointSizes[li] ?? 5) + 4);
+      }
+      const styleFn = styleRef.current.get(li);
+      if (key !== selectedKeyRef.current && styleFn && typeof inst.setStyle === "function") {
+        inst.setStyle(getPreviewHighlightStyle(styleFn(inst.feature as GeoJSON.Feature)));
+      }
+      hoveredKeyRef.current = key;
+    };
+
+    let rafId: number | null = null;
+    const onMouseMove = (e: L.LeafletMouseEvent) => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        const top = getCandidates(e.latlng)[0];
+        applyHover(top ? `${top.layerIndex}:${top.featureIndex}` : null);
+      });
+    };
+    const onMouseOut = () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      clearHover();
+    };
+
+    const onClick = (e: L.LeafletMouseEvent) => {
+      const candidates = getCandidates(e.latlng);
+      if (candidates.length === 0) return;
+
+      const clickPoint = map.latLngToContainerPoint(e.latlng);
+      const prev = cycleRef.current;
+      const sameKeys =
+        prev.matches.length === candidates.length &&
+        prev.matches.every(
+          (m, i) => m.layerIndex === candidates[i].layerIndex && m.featureIndex === candidates[i].featureIndex
+        );
+      const closeToPrev = prev.point ? prev.point.distanceTo(clickPoint) < 15 : false;
+      const nextIndex = sameKeys && closeToPrev ? (prev.index + 1) % candidates.length : 0;
+      cycleRef.current = {
+        point: clickPoint,
+        matches: candidates.map(({ layerIndex, featureIndex }) => ({ layerIndex, featureIndex })),
+        index: nextIndex,
+      };
+
+      const sel = candidates[nextIndex];
+      applySelection(`${sel.layerIndex}:${sel.featureIndex}`);
+      const ctx = ctxRef.current;
+      const layer = ctx.layers[sel.layerIndex];
+      const props = (geojsonRef.current.get(sel.layerIndex)?.features[sel.featureIndex]?.properties ?? null) as
+        | Record<string, unknown>
+        | null;
+
+      if (ctx.mode === "card" || ctx.mode === "both") {
+        const selectedFields = ctx.layerVisibleFields[sel.layerIndex];
+        const allKeys = props ? Object.keys(props) : [];
+        const fieldsToShow = selectedFields ? selectedFields.filter((f) => allKeys.includes(f)) : allKeys;
+        const rows = fieldsToShow.map((key) => {
+          const value = props ? props[key] : undefined;
+          return { key, value: value === null || value === undefined ? "-" : String(value) };
+        });
+        setCard({ layerName: layer?.name ?? "", rows });
+      } else {
+        setCard(null);
+      }
+
+      map.closePopup();
+      if (ctx.mode === "popup" || ctx.mode === "both") {
+        (sel.layerInstance as L.Layer & { openPopup?: (ll?: L.LatLng) => L.Layer }).openPopup?.(e.latlng);
+      }
+    };
+
+    map.on("mousemove", onMouseMove);
+    map.on("mouseout", onMouseOut);
+    map.on("click", onClick);
+    return () => {
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+      map.off("mousemove", onMouseMove);
+      map.off("mouseout", onMouseOut);
+      map.off("click", onClick);
+    };
+  }, []);
 
   // Tombol 1 klik: fokus ke Boundary Layer, zoom hasil dijepit ke rentang
   // Minimum/Maximum Zoom dari Export Configuration.
@@ -315,7 +473,7 @@ function ExportPreviewMap({
               <p className="export-preview-feature-card-title">Feature Information</p>
               <p className="export-preview-feature-card-subtitle">{card.layerName}</p>
             </div>
-            <button type="button" onClick={() => setCard(null)}>&times;</button>
+            <button type="button" onClick={() => { setCard(null); clearSelectionRef.current(); }}>&times;</button>
           </div>
           <table className="feature-popup-table">
             <tbody>
