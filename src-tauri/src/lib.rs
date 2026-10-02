@@ -1485,6 +1485,10 @@ fn build_style_css() -> String {
 .leaflet-tooltip.layer-feature-label::before {
   display: none;
 }
+
+.map-flying .layer-feature-label {
+  visibility: hidden;
+}
 "#.to_string()
 }
 
@@ -1494,6 +1498,41 @@ fn build_app_js(config_json: &str) -> String {
 
 const map = L.map('map', {{ zoomControl: false, minZoom: CONFIG.minZoom, maxZoom: CONFIG.maxZoom }});
 L.control.zoom({{ position: 'bottomright' }}).addTo(map);
+
+const FocusBoundaryControl = L.Control.extend({{
+  onAdd: function () {{
+    const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+    const button = L.DomUtil.create('a', '', container);
+    button.href = '#';
+    button.title = 'Fokus ke Boundary Layer';
+    button.setAttribute('role', 'button');
+    button.setAttribute('aria-label', 'Fokus ke Boundary Layer');
+    button.style.fontSize = '18px';
+    button.style.lineHeight = '30px';
+    button.style.textAlign = 'center';
+    button.innerHTML = '&#8982;';
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.on(button, 'click', function (ev) {{
+      L.DomEvent.preventDefault(ev);
+      const boundaryCfg = CONFIG.layers.find(function (l) {{ return l.isBoundary; }});
+      if (!boundaryCfg) return;
+      const gLayer = layerRefs[boundaryCfg.layerIndex];
+      if (!gLayer) return;
+      const bounds = gLayer.getBounds();
+      if (!bounds.isValid()) return;
+      const mapEl = map.getContainer();
+      mapEl.classList.add('map-flying');
+      map.once('moveend', function () {{ mapEl.classList.remove('map-flying'); }});
+      if (map.getBoundsZoom(bounds) < CONFIG.minZoom) {{
+        map.flyTo(bounds.getCenter(), CONFIG.minZoom, {{ duration: 1.6 }});
+      }} else {{
+        map.flyToBounds(bounds, {{ maxZoom: CONFIG.maxZoom, duration: 1.6 }});
+      }}
+    }});
+    return container;
+  }},
+}});
+new FocusBoundaryControl({{ position: 'bottomright' }}).addTo(map);
 
 function addBasemap() {{
   L.tileLayer(CONFIG.basemap.url, {{

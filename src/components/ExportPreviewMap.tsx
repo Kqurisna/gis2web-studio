@@ -105,7 +105,9 @@ function ExportPreviewMap({
         const resolvedColor = hasClassifiedStyle
           ? resolveFeatureColor(layer, categoryOverrides, feature, layerColor)
           : layerColor;
-        return styleForLayer(resolvedColor, isBoundary, layerOpacity);
+        const base = styleForLayer(resolvedColor, isBoundary, layerOpacity);
+        // Boundary: fill hampir transparan agar area dalam polygon tetap menangkap klik.
+        return isBoundary ? { ...base, fill: true, fillOpacity: 0.001 } : base;
       };
 
       const labeledFeatureIndexes = computeLabeledFeatureIndexes(layer, data as GeoJSON.FeatureCollection);
