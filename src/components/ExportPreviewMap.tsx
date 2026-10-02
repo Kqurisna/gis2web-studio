@@ -18,6 +18,7 @@ interface ExportPreviewMapProps {
   layerVisibleFields: Record<number, string[]>;
   config: WebGisConfig;
   exportConfig: ExportConfig;
+  device?: "desktop" | "mobile";
 }
 
 // Preview export murni dari CACHE (hasil prefetch saat import), tidak pernah
@@ -36,6 +37,7 @@ function ExportPreviewMap({
   layerVisibleFields,
   config,
   exportConfig,
+  device = "desktop",
 }: ExportPreviewMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -215,6 +217,11 @@ function ExportPreviewMap({
     exportConfig.labelFontSize,
     layerVisibleFields,
   ]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => mapRef.current?.invalidateSize(), 50);
+    return () => window.clearTimeout(t);
+  }, [device]);
 
   return (
     <div className="export-preview-map-wrap">

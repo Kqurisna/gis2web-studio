@@ -1809,3 +1809,40 @@ button {
 .map-flying .layer-feature-label {
   visibility: hidden;
 }
+
+/* Preview Desktop / Mobile */
+.export-preview-device-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.export-preview-frame {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.export-preview-frame--mobile {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 0;
+  overflow: auto;
+}
+
+.export-preview-frame--mobile .export-preview-map-wrap {
+  flex: none;
+  width: 390px;
+  max-width: 100%;
+  height: 700px;
+  max-height: 100%;
+}
+
+.export-preview-frame--mobile .export-preview-map {
+  min-height: 0;
+}
+
+.export-preview-frame .export-preview-map-wrap {
+  flex: 1;
+}

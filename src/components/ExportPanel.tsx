@@ -130,6 +130,7 @@ function ExportPanel({
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<"ringkasan" | "peta">("ringkasan");
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
 
   const zoomError = exportConfig.maxZoom < exportConfig.minZoom;
 
@@ -425,6 +426,26 @@ function ExportPanel({
       )}
 
       {previewMode === "peta" && (
+        <div className="export-preview-device-toggle">
+          <button
+            type="button"
+            className={"export-preview-tab" + (previewDevice === "desktop" ? " active" : "")}
+            onClick={() => setPreviewDevice("desktop")}
+          >
+            Desktop
+          </button>
+          <button
+            type="button"
+            className={"export-preview-tab" + (previewDevice === "mobile" ? " active" : "")}
+            onClick={() => setPreviewDevice("mobile")}
+          >
+            Mobile
+          </button>
+        </div>
+      )}
+
+      {previewMode === "peta" && (
+        <div className={previewDevice === "mobile" ? "export-preview-frame--mobile" : "export-preview-frame"}>
         <ExportPreviewMap
           projectPath={projectPath}
           layers={layers}
@@ -438,7 +459,9 @@ function ExportPanel({
           layerVisibleFields={layerVisibleFields}
           config={config}
           exportConfig={exportConfig}
+          device={previewDevice}
         />
+        </div>
       )}
     </div>
     </div>
