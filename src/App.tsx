@@ -284,7 +284,13 @@ function App() {
           ))}
         </nav>
 
-        <main className={"app-main" + (activeMenu === "project" ? " app-main--full-bleed" : "")}>
+        <main
+          className={
+            "app-main" +
+            (activeMenu === "project" ? " app-main--full-bleed" : "") +
+            (activeMenu === "export" ? " app-main--export" : "")
+          }
+        >
           {activeMenu === "project" ? (
             <div className="project-view">
               <ImportToolbar

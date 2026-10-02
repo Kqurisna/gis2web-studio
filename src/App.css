@@ -1856,3 +1856,45 @@ button {
   height: calc(100vh - 14rem);
   min-height: 500px;
 }
+
+/* Export: satu jendela pas, hanya kolom kiri yang scroll */
+.app-main--export {
+  overflow: hidden;
+}
+
+.app-main--export .export-panel-layout {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  align-items: stretch;
+}
+
+.app-main--export .export-panel {
+  overflow-y: auto;
+  min-height: 0;
+  max-height: 100%;
+  padding-right: 0.25rem;
+}
+
+.app-main--export .export-preview-pane {
+  min-height: 0;
+  height: 100%;
+}
+
+.app-main--export .export-preview-frame {
+  min-height: 0;
+}
+
+.app-main--export .export-preview-pane .export-preview-frame .export-preview-map-wrap,
+.app-main--export .export-preview-frame--mobile .export-preview-map-wrap {
+  min-height: 0;
+}
+
+.app-main--export .export-preview-frame--mobile .export-preview-map-wrap {
+  height: 100%;
+  max-height: 100%;
+}
+
+.app-main--export .export-preview-map {
+  min-height: 0;
+}
