@@ -1898,3 +1898,28 @@ button {
 .app-main--export .export-preview-map {
   min-height: 0;
 }
+
+/* Export: slider lebih ringkas (hanya di panel Pengaturan Export) */
+.export-panel .config-slider-block {
+  margin-bottom: 0.6rem;
+}
+
+.export-panel .config-slider-label {
+  font-size: 0.78rem;
+  margin-bottom: 0.15rem;
+}
+
+.export-panel .config-slider-row {
+  gap: 0.5rem;
+}
+
+.export-panel .config-slider-bound {
+  font-size: 0.68rem;
+  width: 1.1rem;
+}
+
+.export-panel .config-slider-value {
+  font-size: 0.88rem;
+  margin-top: 0;
+  line-height: 1.2;
+}
